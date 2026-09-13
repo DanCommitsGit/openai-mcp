@@ -1,22 +1,17 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import OpenAI, { APIError, OpenAIError } from "openai";
 import { z } from "zod";
+import {
+  createEmbeddings,
+  generateImage,
+  generateText,
+  listModels,
+} from "./tools.js";
 
 const server = new McpServer({
   name: "openai-mcp",
   version: "0.1.0",
 });
-
-function formatError(error: unknown): string {
-  if (error instanceof APIError) {
-    return `OpenAI API error (${error.status ?? "unknown status"}): ${error.message}`;
-  }
-  if (error instanceof OpenAIError) {
-    return error.message;
-  }
-  return error instanceof Error ? error.message : String(error);
-}
 
 server.registerTool(
   "generate_text",
@@ -36,27 +31,7 @@ server.registerTool(
         ),
     }),
   },
-  async ({ prompt, model, instructions }) => {
-    try {
-      const client = new OpenAI();
-      const response = await client.responses.create({
-        model,
-        input: prompt,
-        ...(instructions ? { instructions } : {}),
-      });
-
-      return {
-        content: [
-          { type: "text", text: response.output_text || "No response content." },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: formatError(error) }],
-        isError: true,
-      };
-    }
-  },
+  (args) => generateText(args),
 );
 
 server.registerTool(
@@ -83,39 +58,7 @@ server.registerTool(
         .describe("Number of images to generate"),
     }),
   },
-  async ({ prompt, model, size, n }) => {
-    try {
-      const client = new OpenAI();
-      const response = await client.images.generate({
-        prompt,
-        model,
-        n,
-        ...(size ? { size } : {}),
-      });
-
-      const images = response.data ?? [];
-      if (images.length === 0) {
-        return { content: [{ type: "text", text: "No images were returned." }] };
-      }
-
-      const mimeType = `image/${response.output_format ?? "png"}`;
-      const content = images.map((image) =>
-        image.b64_json
-          ? ({ type: "image" as const, data: image.b64_json, mimeType })
-          : ({
-              type: "text" as const,
-              text: image.url ?? "Image returned with no data.",
-            }),
-      );
-
-      return { content };
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: formatError(error) }],
-        isError: true,
-      };
-    }
-  },
+  (args) => generateImage(args),
 );
 
 server.registerTool(
@@ -132,26 +75,7 @@ server.registerTool(
         .describe("OpenAI embedding model ID to use"),
     }),
   },
-  async ({ input, model }) => {
-    try {
-      const client = new OpenAI();
-      const response = await client.embeddings.create({ input, model });
-
-      const summary = response.data.map((embedding) => ({
-        index: embedding.index,
-        embedding: embedding.embedding,
-      }));
-
-      return {
-        content: [{ type: "text", text: JSON.stringify(summary) }],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: formatError(error) }],
-        isError: true,
-      };
-    }
-  },
+  (args) => createEmbeddings(args),
 );
 
 server.registerTool(
@@ -160,27 +84,7 @@ server.registerTool(
     description: "List the OpenAI models available to this API key",
     inputSchema: z.object({}),
   },
-  async () => {
-    try {
-      const client = new OpenAI();
-      const modelIds: string[] = [];
-      for await (const model of client.models.list()) {
-        modelIds.push(model.id);
-      }
-      modelIds.sort();
-
-      return {
-        content: [
-          { type: "text", text: modelIds.join("\n") || "No models available." },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: formatError(error) }],
-        isError: true,
-      };
-    }
-  },
+  () => listModels(),
 );
 
 async function main() {
