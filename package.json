@@ -19,7 +19,8 @@
     "start": "node build/index.js",
     "test": "vitest run",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -34,8 +35,10 @@
   },
   "homepage": "https://github.com/DanCommitsGit/openai-mcp#readme",
   "devDependencies": {
+    "@semantic-release/git": "^10.0.1",
     "@types/node": "^22.20.2",
     "prettier": "^3.9.6",
+    "semantic-release": "^25.0.9",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
   },
