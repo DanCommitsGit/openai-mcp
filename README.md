@@ -1,5 +1,9 @@
 # openai-mcp
 
+[![npm version](https://img.shields.io/npm/v/%40dancommitsgit%2Fopenai-mcp.svg)](https://www.npmjs.com/package/@dancommitsgit/openai-mcp)
+[![CI](https://github.com/DanCommitsGit/openai-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/DanCommitsGit/openai-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An MCP server that exposes OpenAI API capabilities as tools for an LLM to call.
 
 ## Requirements
