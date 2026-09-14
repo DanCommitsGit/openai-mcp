@@ -1,13 +1,16 @@
 {
-  "name": "openai-mcp",
+  "name": "@dancommitsgit/openai-mcp",
   "version": "0.1.0",
   "description": "MCP server for the OpenAI API",
   "bin": {
-    "openai-mcp": "./build/index.js"
+    "openai-mcp": "build/index.js"
   },
   "files": [
     "build"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },
