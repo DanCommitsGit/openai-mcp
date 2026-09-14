@@ -20,5 +20,7 @@ npm-debug.log*
 .idea/
 .DS_Store
 
+.claude/settings.local.json
+
 # Coverage
 coverage/
