@@ -44,3 +44,7 @@ When implementing or changing OpenAI SDK calls (params, response shapes, model/s
 - https://developers.openai.com/api/reference/llms.txt — index of the full API reference (endpoints grouped by resource, e.g. audio, batches, chat completions)
 
 Each is an `llms.txt` index of linked markdown pages — fetch the index first, then follow the specific page relevant to the task.
+
+## Commit attribution
+
+Add a `Co-Authored-By: Claude <noreply@anthropic.com>` trailer to a commit when Claude wrote a significant share of the changed files. Omit it when the user has fully reviewed and understands the resulting code, or was significantly involved in planning/designing the change — that marks the commit as human-owned rather than vibe-coded.
