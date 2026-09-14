@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, parse } from "node:path";
 import OpenAI, { APIError, OpenAIError } from "openai";
 
 export function formatError(error: unknown): string {
@@ -13,6 +17,19 @@ export function formatError(error: unknown): string {
 export type ToolContent =
   | { type: "text"; text: string }
   | { type: "image"; data: string; mimeType: string };
+
+// Valid sizes depend on the model; see
+// https://developers.openai.com/api/reference/resources/images/methods/generate
+export const IMAGE_SIZES = [
+  "auto",
+  "1024x1024",
+  "1536x1024",
+  "1024x1536",
+  "256x256",
+  "512x512",
+  "1792x1024",
+  "1024x1792",
+] as const;
 
 export type ToolResult = {
   content: ToolContent[];
@@ -45,11 +62,31 @@ export async function generateText(args: {
   }
 }
 
+// When saving multiple images under one requested outputPath, insert a
+// 1-based index before the extension so each image gets a distinct file.
+function resolveImagePath(
+  outputPath: string | undefined,
+  extension: string,
+  index: number,
+  total: number,
+): string {
+  if (!outputPath) {
+    return join(tmpdir(), `openai-image-${randomUUID()}.${extension}`);
+  }
+  if (total === 1) {
+    return outputPath;
+  }
+  const { dir, name, ext } = parse(outputPath);
+  return join(dir, `${name}-${index + 1}${ext || `.${extension}`}`);
+}
+
 export async function generateImage(args: {
   prompt: string;
   model: string;
   size?: string | undefined;
   n: number;
+  returnAs: "path" | "base64";
+  outputPath?: string | undefined;
 }): Promise<ToolResult> {
   try {
     const client = new OpenAI();
@@ -65,11 +102,29 @@ export async function generateImage(args: {
       return { content: [{ type: "text", text: "No images were returned." }] };
     }
 
-    const mimeType = `image/${response.output_format ?? "png"}`;
-    const content: ToolContent[] = images.map((image) =>
-      image.b64_json
-        ? { type: "image", data: image.b64_json, mimeType }
-        : { type: "text", text: image.url ?? "Image returned with no data." },
+    const extension = response.output_format ?? "png";
+    const mimeType = `image/${extension}`;
+    const content: ToolContent[] = await Promise.all(
+      images.map(async (image, index): Promise<ToolContent> => {
+        if (!image.b64_json) {
+          return {
+            type: "text",
+            text: image.url ?? "Image returned with no data.",
+          };
+        }
+        if (args.returnAs === "base64") {
+          return { type: "image", data: image.b64_json, mimeType };
+        }
+        const filePath = resolveImagePath(
+          args.outputPath,
+          extension,
+          index,
+          images.length,
+        );
+        await mkdir(dirname(filePath), { recursive: true });
+        await writeFile(filePath, Buffer.from(image.b64_json, "base64"));
+        return { type: "text", text: filePath };
+      }),
     );
 
     return { content };

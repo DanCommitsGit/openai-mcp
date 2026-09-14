@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   imagesGenerate: vi.fn(),
   embeddingsCreate: vi.fn(),
   modelsList: vi.fn(),
+  writeFile: vi.fn().mockResolvedValue(undefined),
+  mkdir: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("openai", async (importOriginal) => {
@@ -20,6 +22,11 @@ vi.mock("openai", async (importOriginal) => {
     default: FakeOpenAI,
   };
 });
+
+vi.mock("node:fs/promises", () => ({
+  writeFile: mocks.writeFile,
+  mkdir: mocks.mkdir,
+}));
 
 import { APIConnectionError, APIError, OpenAIError } from "openai";
 import {
@@ -106,7 +113,7 @@ describe("generateText", () => {
 });
 
 describe("generateImage", () => {
-  it("returns image content for base64 results", async () => {
+  it("writes base64 results to a temp file and returns its path by default", async () => {
     mocks.imagesGenerate.mockResolvedValueOnce({
       output_format: "png",
       data: [{ b64_json: "abc123" }],
@@ -116,8 +123,78 @@ describe("generateImage", () => {
       prompt: "a cat",
       model: "gpt-image-1",
       n: 1,
+      returnAs: "path",
     });
 
+    expect(mocks.writeFile).toHaveBeenCalledTimes(1);
+    const [filePath, buffer] = mocks.writeFile.mock.calls[0];
+    expect(filePath).toMatch(/openai-image-.+\.png$/);
+    expect(Buffer.from(buffer).equals(Buffer.from("abc123", "base64"))).toBe(
+      true,
+    );
+    expect(result.content).toEqual([{ type: "text", text: filePath }]);
+  });
+
+  it("saves to the given outputPath when provided", async () => {
+    mocks.imagesGenerate.mockResolvedValueOnce({
+      output_format: "png",
+      data: [{ b64_json: "abc123" }],
+    });
+
+    const result = await generateImage({
+      prompt: "a cat",
+      model: "gpt-image-1",
+      n: 1,
+      returnAs: "path",
+      outputPath: "C:/images/cat.png",
+    });
+
+    expect(mocks.mkdir).toHaveBeenCalledWith("C:/images", {
+      recursive: true,
+    });
+    expect(mocks.writeFile).toHaveBeenCalledWith(
+      "C:/images/cat.png",
+      expect.anything(),
+    );
+    expect(result.content).toEqual([
+      { type: "text", text: "C:/images/cat.png" },
+    ]);
+  });
+
+  it("inserts an index into outputPath when generating multiple images", async () => {
+    mocks.imagesGenerate.mockResolvedValueOnce({
+      output_format: "png",
+      data: [{ b64_json: "abc123" }, { b64_json: "def456" }],
+    });
+
+    const result = await generateImage({
+      prompt: "a cat",
+      model: "gpt-image-1",
+      n: 2,
+      returnAs: "path",
+      outputPath: "C:/images/cat.png",
+    });
+
+    expect(result.content).toEqual([
+      { type: "text", text: expect.stringMatching(/cat-1\.png$/) },
+      { type: "text", text: expect.stringMatching(/cat-2\.png$/) },
+    ]);
+  });
+
+  it("returns inline image content when returnAs is base64", async () => {
+    mocks.imagesGenerate.mockResolvedValueOnce({
+      output_format: "png",
+      data: [{ b64_json: "abc123" }],
+    });
+
+    const result = await generateImage({
+      prompt: "a cat",
+      model: "gpt-image-1",
+      n: 1,
+      returnAs: "base64",
+    });
+
+    expect(mocks.writeFile).not.toHaveBeenCalled();
     expect(result.content).toEqual([
       { type: "image", data: "abc123", mimeType: "image/png" },
     ]);
@@ -132,6 +209,7 @@ describe("generateImage", () => {
       prompt: "a cat",
       model: "gpt-image-1",
       n: 1,
+      returnAs: "path",
     });
 
     expect(result.content).toEqual([
@@ -146,6 +224,7 @@ describe("generateImage", () => {
       prompt: "a cat",
       model: "gpt-image-1",
       n: 1,
+      returnAs: "path",
     });
 
     expect(result.content).toEqual([
