@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   modelsList: vi.fn(),
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
+  readFile: vi.fn(),
 }));
 
 vi.mock("openai", async (importOriginal) => {
@@ -26,6 +27,7 @@ vi.mock("openai", async (importOriginal) => {
 vi.mock("node:fs/promises", () => ({
   writeFile: mocks.writeFile,
   mkdir: mocks.mkdir,
+  readFile: mocks.readFile,
 }));
 
 import { APIConnectionError, APIError, OpenAIError } from "openai";
@@ -109,6 +111,67 @@ describe("generateText", () => {
       type: "text",
       text: "Missing credentials",
     });
+  });
+
+  it("passes an image URL through as input_image content", async () => {
+    mocks.responsesCreate.mockResolvedValueOnce({ output_text: "A cat" });
+
+    await generateText({
+      prompt: "what's in this image?",
+      model: "gpt-4o-mini",
+      images: ["https://example.com/cat.png"],
+    });
+
+    expect(mocks.responsesCreate).toHaveBeenCalledWith({
+      model: "gpt-4o-mini",
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: "what's in this image?" },
+            {
+              type: "input_image",
+              image_url: "https://example.com/cat.png",
+              detail: "auto",
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("reads a local image file and inlines it as a base64 data URL", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-bytes"));
+    mocks.responsesCreate.mockResolvedValueOnce({ output_text: "A cat" });
+
+    await generateText({
+      prompt: "what's in this image?",
+      model: "gpt-4o-mini",
+      images: ["C:/images/cat.png"],
+    });
+
+    expect(mocks.readFile).toHaveBeenCalledWith("C:/images/cat.png");
+    const call = mocks.responsesCreate.mock.calls[0][0];
+    expect(call.input[0].content[1]).toEqual({
+      type: "input_image",
+      image_url: `data:image/png;base64,${Buffer.from("fake-bytes").toString("base64")}`,
+      detail: "auto",
+    });
+  });
+
+  it("returns a formatted error for an unsupported local image extension", async () => {
+    const result = await generateText({
+      prompt: "what's in this image?",
+      model: "gpt-4o-mini",
+      images: ["C:/images/cat.bmp"],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].type).toBe("text");
+    expect((result.content[0] as { text: string }).text).toMatch(
+      /Unsupported image file extension/,
+    );
+    expect(mocks.responsesCreate).not.toHaveBeenCalled();
   });
 });
 

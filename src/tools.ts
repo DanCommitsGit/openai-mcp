@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, parse } from "node:path";
+import { dirname, extname, join, parse } from "node:path";
 import OpenAI, { APIError, OpenAIError } from "openai";
 
 export function formatError(error: unknown): string {
@@ -36,16 +36,61 @@ export type ToolResult = {
   isError?: boolean;
 };
 
+// Formats the Responses API accepts for input_image; see
+// https://developers.openai.com/api/docs/guides/images-vision
+const IMAGE_INPUT_MIME_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
+
+// Local paths are read and inlined as base64 data URLs; http(s) URLs are
+// passed straight through so the model fetches them itself.
+async function resolveImageUrl(image: string): Promise<string> {
+  if (/^https?:\/\//i.test(image)) {
+    return image;
+  }
+  const mimeType = IMAGE_INPUT_MIME_TYPES[extname(image).toLowerCase()];
+  if (!mimeType) {
+    throw new Error(
+      `Unsupported image file extension for "${image}". Supported: ${Object.keys(IMAGE_INPUT_MIME_TYPES).join(", ")}`,
+    );
+  }
+  const data = await readFile(image);
+  return `data:${mimeType};base64,${data.toString("base64")}`;
+}
+
 export async function generateText(args: {
   prompt: string;
   model: string;
   instructions?: string | undefined;
+  images?: string[] | undefined;
 }): Promise<ToolResult> {
   try {
     const client = new OpenAI();
+    const input = args.images?.length
+      ? [
+          {
+            role: "user" as const,
+            content: [
+              { type: "input_text" as const, text: args.prompt },
+              ...(await Promise.all(
+                args.images.map(async (image) => ({
+                  type: "input_image" as const,
+                  image_url: await resolveImageUrl(image),
+                  detail: "auto" as const,
+                })),
+              )),
+            ],
+          },
+        ]
+      : args.prompt;
+
     const response = await client.responses.create({
       model: args.model,
-      input: args.prompt,
+      input,
       ...(args.instructions ? { instructions: args.instructions } : {}),
     });
 

@@ -18,18 +18,27 @@ const server = new McpServer({
 server.registerTool(
   "generate_text",
   {
-    description: "Send a prompt to an OpenAI model and return its text reply",
+    description:
+      "Send a prompt to an OpenAI model and return its text reply. Pass images to ask a vision-capable model about them",
     inputSchema: z.object({
       prompt: z.string().describe("The input text to send to the model"),
       model: z
         .string()
         .default("gpt-4o-mini")
-        .describe("OpenAI model ID to use"),
+        .describe(
+          "OpenAI model ID to use. Must be a vision-capable model (e.g. gpt-4o, gpt-4o-mini) if images are provided",
+        ),
       instructions: z
         .string()
         .optional()
         .describe(
           "Optional high-level instructions to steer the model's behavior",
+        ),
+      images: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Images to include with the prompt, each as an http(s) URL or a file path on this server's filesystem (PNG, JPEG, WEBP, or GIF)",
         ),
     }),
   },
