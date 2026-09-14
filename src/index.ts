@@ -26,7 +26,7 @@ server.registerTool(
         .string()
         .default("gpt-4o-mini")
         .describe(
-          "OpenAI model ID to use. Must be a vision-capable model (e.g. gpt-4o, gpt-4o-mini) if images are provided",
+          "OpenAI model ID to use. Must be a vision-capable model (e.g. gpt-4o, gpt-4o-mini) if images are provided. Call list_models to see what's available",
         ),
       instructions: z
         .string()
@@ -56,7 +56,7 @@ server.registerTool(
         .string()
         .default("gpt-image-1")
         .describe(
-          "OpenAI image model ID to use, e.g. gpt-image-1, gpt-image-1-mini, gpt-image-1.5, gpt-image-2, dall-e-2, or dall-e-3",
+          "OpenAI image model ID to use, e.g. gpt-image-1, gpt-image-1-mini, gpt-image-1.5, gpt-image-2, dall-e-2, or dall-e-3. Call list_models to see what's available",
         ),
       size: z
         .enum(IMAGE_SIZES)
@@ -101,7 +101,9 @@ server.registerTool(
       model: z
         .string()
         .default("text-embedding-3-small")
-        .describe("OpenAI embedding model ID to use"),
+        .describe(
+          "OpenAI embedding model ID to use. Call list_models to see what's available",
+        ),
     }),
   },
   (args) => createEmbeddings(args),
