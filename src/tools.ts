@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, extname, join, parse } from "node:path";
-import OpenAI, { APIError, OpenAIError } from "openai";
+import { basename, dirname, extname, join, parse } from "node:path";
+import OpenAI, { APIError, OpenAIError, toFile, type Uploadable } from "openai";
 
 export function formatError(error: unknown): string {
   if (error instanceof APIError) {
@@ -16,7 +16,8 @@ export function formatError(error: unknown): string {
 
 export type ToolContent =
   | { type: "text"; text: string }
-  | { type: "image"; data: string; mimeType: string };
+  | { type: "image"; data: string; mimeType: string }
+  | { type: "audio"; data: string; mimeType: string };
 
 // Valid sizes depend on the model; see
 // https://developers.openai.com/api/reference/resources/images/methods/generate
@@ -35,6 +36,38 @@ export type ToolResult = {
   content: ToolContent[];
   isError?: boolean;
 };
+
+// Formats accepted by the TTS API's response_format; see
+// https://developers.openai.com/api/reference/resources/audio/subresources/speech/methods/create
+export const AUDIO_FORMATS = [
+  "mp3",
+  "opus",
+  "aac",
+  "flac",
+  "wav",
+  "pcm",
+] as const;
+export type AudioFormat = (typeof AUDIO_FORMATS)[number];
+
+const AUDIO_MIME_TYPES: Record<AudioFormat, string> = {
+  mp3: "audio/mpeg",
+  opus: "audio/opus",
+  aac: "audio/aac",
+  flac: "audio/flac",
+  wav: "audio/wav",
+  pcm: "audio/pcm",
+};
+
+// Formats accepted by the transcription API's response_format; see
+// https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create
+export const TRANSCRIPTION_FORMATS = [
+  "json",
+  "text",
+  "srt",
+  "verbose_json",
+  "vtt",
+] as const;
+export type TranscriptionFormat = (typeof TRANSCRIPTION_FORMATS)[number];
 
 // Formats the Responses API accepts for input_image; see
 // https://developers.openai.com/api/docs/guides/images-vision
@@ -222,6 +255,103 @@ export async function listModels(): Promise<ToolResult> {
         { type: "text", text: modelIds.join("\n") || "No models available." },
       ],
     };
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: formatError(error) }],
+      isError: true,
+    };
+  }
+}
+
+export async function generateSpeech(args: {
+  input: string;
+  model: string;
+  voice: string;
+  instructions?: string | undefined;
+  format: AudioFormat;
+  speed?: number | undefined;
+  returnAs: "path" | "base64";
+  outputPath?: string | undefined;
+}): Promise<ToolResult> {
+  try {
+    const client = new OpenAI();
+    const response = await client.audio.speech.create({
+      input: args.input,
+      model: args.model,
+      voice: args.voice,
+      response_format: args.format,
+      ...(args.instructions ? { instructions: args.instructions } : {}),
+      ...(args.speed !== undefined ? { speed: args.speed } : {}),
+    });
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (args.returnAs === "base64") {
+      return {
+        content: [
+          {
+            type: "audio",
+            data: buffer.toString("base64"),
+            mimeType: AUDIO_MIME_TYPES[args.format],
+          },
+        ],
+      };
+    }
+
+    const filePath =
+      args.outputPath ??
+      join(tmpdir(), `openai-speech-${randomUUID()}.${args.format}`);
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, buffer);
+    return { content: [{ type: "text", text: filePath }] };
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: formatError(error) }],
+      isError: true,
+    };
+  }
+}
+
+// http(s) URLs are downloaded first since the transcription API requires an
+// uploaded file rather than a URL reference; local paths are read directly.
+async function resolveAudioFile(file: string): Promise<Uploadable> {
+  if (/^https?:\/\//i.test(file)) {
+    const response = await fetch(file);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download audio from "${file}": ${response.status} ${response.statusText}`,
+      );
+    }
+    const data = Buffer.from(await response.arrayBuffer());
+    return toFile(data, basename(new URL(file).pathname) || "audio");
+  }
+  return toFile(await readFile(file), basename(file));
+}
+
+export async function transcribeAudio(args: {
+  file: string;
+  model: string;
+  language?: string | undefined;
+  prompt?: string | undefined;
+  format: TranscriptionFormat;
+}): Promise<ToolResult> {
+  try {
+    const client = new OpenAI();
+    const response = await client.audio.transcriptions.create({
+      file: await resolveAudioFile(args.file),
+      model: args.model,
+      response_format: args.format,
+      ...(args.language ? { language: args.language } : {}),
+      ...(args.prompt ? { prompt: args.prompt } : {}),
+    });
+
+    const text =
+      typeof response === "string"
+        ? response
+        : args.format === "verbose_json"
+          ? JSON.stringify(response)
+          : response.text;
+
+    return { content: [{ type: "text", text }] };
   } catch (error) {
     return {
       content: [{ type: "text", text: formatError(error) }],

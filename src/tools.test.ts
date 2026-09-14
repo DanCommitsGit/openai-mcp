@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   imagesGenerate: vi.fn(),
   embeddingsCreate: vi.fn(),
   modelsList: vi.fn(),
+  speechCreate: vi.fn(),
+  transcriptionsCreate: vi.fn(),
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn(),
@@ -17,6 +19,10 @@ vi.mock("openai", async (importOriginal) => {
     images = { generate: mocks.imagesGenerate };
     embeddings = { create: mocks.embeddingsCreate };
     models = { list: mocks.modelsList };
+    audio = {
+      speech: { create: mocks.speechCreate },
+      transcriptions: { create: mocks.transcriptionsCreate },
+    };
   }
   return {
     ...actual,
@@ -35,8 +41,10 @@ import {
   createEmbeddings,
   formatError,
   generateImage,
+  generateSpeech,
   generateText,
   listModels,
+  transcribeAudio,
 } from "./tools.js";
 
 beforeEach(() => {
@@ -340,5 +348,186 @@ describe("listModels", () => {
       type: "text",
       text: "No models available.",
     });
+  });
+});
+
+describe("generateSpeech", () => {
+  it("writes audio to a temp file and returns its path by default", async () => {
+    mocks.speechCreate.mockResolvedValueOnce({
+      arrayBuffer: async () =>
+        new TextEncoder().encode("fake-audio-bytes").buffer,
+    });
+
+    const result = await generateSpeech({
+      input: "hello",
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      format: "mp3",
+      returnAs: "path",
+    });
+
+    expect(mocks.writeFile).toHaveBeenCalledTimes(1);
+    const [filePath, buffer] = mocks.writeFile.mock.calls[0];
+    expect(filePath).toMatch(/openai-speech-.+\.mp3$/);
+    expect(Buffer.from(buffer).toString()).toBe("fake-audio-bytes");
+    expect(result.content).toEqual([{ type: "text", text: filePath }]);
+  });
+
+  it("saves to the given outputPath when provided", async () => {
+    mocks.speechCreate.mockResolvedValueOnce({
+      arrayBuffer: async () =>
+        new TextEncoder().encode("fake-audio-bytes").buffer,
+    });
+
+    const result = await generateSpeech({
+      input: "hello",
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      format: "mp3",
+      returnAs: "path",
+      outputPath: "C:/audio/greeting.mp3",
+    });
+
+    expect(mocks.mkdir).toHaveBeenCalledWith("C:/audio", { recursive: true });
+    expect(result.content).toEqual([
+      { type: "text", text: "C:/audio/greeting.mp3" },
+    ]);
+  });
+
+  it("returns inline audio content when returnAs is base64", async () => {
+    mocks.speechCreate.mockResolvedValueOnce({
+      arrayBuffer: async () =>
+        new TextEncoder().encode("fake-audio-bytes").buffer,
+    });
+
+    const result = await generateSpeech({
+      input: "hello",
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      format: "wav",
+      returnAs: "base64",
+    });
+
+    expect(mocks.writeFile).not.toHaveBeenCalled();
+    expect(result.content).toEqual([
+      {
+        type: "audio",
+        data: Buffer.from("fake-audio-bytes").toString("base64"),
+        mimeType: "audio/wav",
+      },
+    ]);
+  });
+
+  it("returns a formatted error result when the API call fails", async () => {
+    mocks.speechCreate.mockRejectedValueOnce(
+      new OpenAIError("Missing credentials"),
+    );
+
+    const result = await generateSpeech({
+      input: "hello",
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      format: "mp3",
+      returnAs: "path",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]).toEqual({
+      type: "text",
+      text: "Missing credentials",
+    });
+  });
+});
+
+describe("transcribeAudio", () => {
+  it("reads a local audio file and returns the transcribed text", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-audio-bytes"));
+    mocks.transcriptionsCreate.mockResolvedValueOnce({ text: "hello world" });
+
+    const result = await transcribeAudio({
+      file: "C:/audio/clip.mp3",
+      model: "gpt-4o-mini-transcribe",
+      format: "json",
+    });
+
+    expect(mocks.readFile).toHaveBeenCalledWith("C:/audio/clip.mp3");
+    expect(result.content).toEqual([{ type: "text", text: "hello world" }]);
+  });
+
+  it("downloads a remote URL and transcribes it", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: async () =>
+        new TextEncoder().encode("fake-audio-bytes").buffer,
+    } as Response);
+    mocks.transcriptionsCreate.mockResolvedValueOnce({
+      text: "hello from url",
+    });
+
+    const result = await transcribeAudio({
+      file: "https://example.com/clip.mp3",
+      model: "gpt-4o-mini-transcribe",
+      format: "json",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/clip.mp3");
+    expect(result.content).toEqual([{ type: "text", text: "hello from url" }]);
+    fetchMock.mockRestore();
+  });
+
+  it("returns the full JSON payload for verbose_json format", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-audio-bytes"));
+    const verbose = {
+      text: "hi",
+      duration: 1.2,
+      language: "en",
+      segments: [],
+    };
+    mocks.transcriptionsCreate.mockResolvedValueOnce(verbose);
+
+    const result = await transcribeAudio({
+      file: "C:/audio/clip.mp3",
+      model: "gpt-4o-mini-transcribe",
+      format: "verbose_json",
+    });
+
+    expect(result.content).toEqual([
+      { type: "text", text: JSON.stringify(verbose) },
+    ]);
+  });
+
+  it("returns a plain string response as-is for text format", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-audio-bytes"));
+    mocks.transcriptionsCreate.mockResolvedValueOnce("hello world");
+
+    const result = await transcribeAudio({
+      file: "C:/audio/clip.mp3",
+      model: "gpt-4o-mini-transcribe",
+      format: "text",
+    });
+
+    expect(result.content).toEqual([{ type: "text", text: "hello world" }]);
+  });
+
+  it("returns a formatted error when a remote download fails", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+    } as Response);
+
+    const result = await transcribeAudio({
+      file: "https://example.com/missing.mp3",
+      model: "gpt-4o-mini-transcribe",
+      format: "json",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].type).toBe("text");
+    expect((result.content[0] as { text: string }).text).toMatch(
+      /Failed to download audio/,
+    );
+    expect(mocks.transcriptionsCreate).not.toHaveBeenCalled();
+    fetchMock.mockRestore();
   });
 });

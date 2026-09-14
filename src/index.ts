@@ -3,11 +3,15 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import {
+  AUDIO_FORMATS,
   createEmbeddings,
   generateImage,
+  generateSpeech,
   generateText,
   IMAGE_SIZES,
   listModels,
+  transcribeAudio,
+  TRANSCRIPTION_FORMATS,
 } from "./tools.js";
 
 const server = new McpServer({
@@ -116,6 +120,101 @@ server.registerTool(
     inputSchema: z.object({}),
   },
   () => listModels(),
+);
+
+server.registerTool(
+  "generate_speech",
+  {
+    description:
+      "Convert text to spoken audio using an OpenAI text-to-speech model. By default returns the local file path the audio was saved to rather than inline data; set returnAs to 'base64' for inline audio instead",
+    inputSchema: z.object({
+      input: z
+        .string()
+        .max(4096)
+        .describe("The text to convert to speech (max 4096 characters)"),
+      model: z
+        .string()
+        .default("gpt-4o-mini-tts")
+        .describe(
+          "OpenAI TTS model ID to use, e.g. gpt-4o-mini-tts, tts-1, or tts-1-hd. Call list_models to see what's available",
+        ),
+      voice: z
+        .string()
+        .default("alloy")
+        .describe(
+          "Voice to use, e.g. alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse, marin, or cedar",
+        ),
+      instructions: z
+        .string()
+        .optional()
+        .describe(
+          "Optional guidance on tone, style, or delivery. Ignored by tts-1 and tts-1-hd",
+        ),
+      format: z
+        .enum(AUDIO_FORMATS)
+        .default("mp3")
+        .describe("Audio file format to generate"),
+      speed: z
+        .number()
+        .min(0.25)
+        .max(4)
+        .optional()
+        .describe("Playback speed from 0.25 to 4.0 (default 1.0)"),
+      returnAs: z
+        .enum(["path", "base64"])
+        .default("path")
+        .describe(
+          "How to return the generated audio. 'path' (default) saves it to disk and returns its file path, avoiding the large inline payloads that can exceed an MCP client's tool result size limit. 'base64' returns the audio data inline instead",
+        ),
+      outputPath: z
+        .string()
+        .optional()
+        .describe(
+          "File path to save the audio to when returnAs is 'path'. Ignored when returnAs is 'base64'. Defaults to a temp file if omitted",
+        ),
+    }),
+  },
+  (args) => generateSpeech(args),
+);
+
+server.registerTool(
+  "transcribe_audio",
+  {
+    description:
+      "Transcribe spoken audio to text using an OpenAI speech-to-text model",
+    inputSchema: z.object({
+      file: z
+        .string()
+        .describe(
+          "Audio to transcribe, as an http(s) URL or a file path on this server's filesystem (flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, or webm)",
+        ),
+      model: z
+        .string()
+        .default("gpt-4o-mini-transcribe")
+        .describe(
+          "OpenAI speech-to-text model ID to use, e.g. gpt-4o-mini-transcribe, gpt-4o-transcribe, gpt-transcribe, or whisper-1. Call list_models to see what's available",
+        ),
+      language: z
+        .string()
+        .optional()
+        .describe(
+          "ISO-639-1 language code of the input audio (e.g. 'en'). Improves accuracy and latency",
+        ),
+      prompt: z
+        .string()
+        .optional()
+        .describe(
+          "Optional text to guide the model's style or vocabulary, or to continue a previous audio segment",
+        ),
+      format: z
+        .enum(TRANSCRIPTION_FORMATS)
+        .default("json")
+        .describe(
+          "Output format. 'verbose_json' includes segment and word timestamps",
+        ),
+    }),
+  },
+  (args) => transcribeAudio(args),
 );
 
 async function main() {
