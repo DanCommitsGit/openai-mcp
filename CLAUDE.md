@@ -49,6 +49,17 @@ When implementing or changing OpenAI SDK calls (params, response shapes, model/s
 
 Each is an `llms.txt` index of linked markdown pages — fetch the index first, then follow the specific page relevant to the task.
 
+## MCP protocol documentation
+
+When touching `src/index.ts` (tool registration, schemas, transport) or anything else that depends on MCP protocol behavior rather than the OpenAI SDK, verify against current MCP docs rather than training-data memory. Don't fetch the site's `llms.txt` index (it covers the entire spec, registry, and SEP history and isn't worth loading in full) — go straight to whichever page below fits the task:
+
+- https://modelcontextprotocol.io/docs/2026-07-28/develop/build-server.md — building an MCP server with the TS SDK
+- https://modelcontextprotocol.io/docs/2026-07-28/sdk.md — official SDKs index
+- https://modelcontextprotocol.io/specification/2026-07-28/server/tools.md — tools spec (schemas, `isError`, list-changed notifications)
+- https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio.md — stdio transport spec
+- https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices.md — security considerations and attack vectors for MCP servers
+- https://modelcontextprotocol.io/docs/2026-07-28/tools/debugging.md and https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector.md — debugging a server and using the MCP Inspector
+
 ## Commit attribution
 
 Add a `Co-Authored-By: Claude <noreply@anthropic.com>` trailer to a commit when Claude wrote a significant share of the changed files. Omit it when the user has fully reviewed and understands the resulting code, or was significantly involved in planning/designing the change — that marks the commit as human-owned rather than vibe-coded.
