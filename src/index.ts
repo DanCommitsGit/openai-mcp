@@ -46,10 +46,7 @@ server.registerTool(
         .string()
         .default("gpt-image-1")
         .describe("OpenAI image model ID to use"),
-      size: z
-        .string()
-        .optional()
-        .describe("Image dimensions, e.g. 1024x1024"),
+      size: z.string().optional().describe("Image dimensions, e.g. 1024x1024"),
       n: z
         .number()
         .int()

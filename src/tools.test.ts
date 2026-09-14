@@ -38,13 +38,20 @@ beforeEach(() => {
 
 describe("formatError", () => {
   it("includes the status code for an APIError", () => {
-    const error = new APIError(429, { message: "Rate limited" }, "Rate limited", undefined);
+    const error = new APIError(
+      429,
+      { message: "Rate limited" },
+      "Rate limited",
+      undefined,
+    );
     expect(formatError(error)).toBe("OpenAI API error (429): 429 Rate limited");
   });
 
   it("falls back to 'unknown status' when an APIError has no status", () => {
     const error = new APIConnectionError({ message: "Network down" });
-    expect(formatError(error)).toBe("OpenAI API error (unknown status): Network down");
+    expect(formatError(error)).toBe(
+      "OpenAI API error (unknown status): Network down",
+    );
   });
 
   it("uses the message directly for other OpenAIErrors", () => {
@@ -67,7 +74,9 @@ describe("generateText", () => {
 
     const result = await generateText({ prompt: "hi", model: "gpt-4o-mini" });
 
-    expect(result).toEqual({ content: [{ type: "text", text: "Hello there" }] });
+    expect(result).toEqual({
+      content: [{ type: "text", text: "Hello there" }],
+    });
   });
 
   it("falls back to a placeholder when output_text is empty", async () => {
@@ -75,16 +84,24 @@ describe("generateText", () => {
 
     const result = await generateText({ prompt: "hi", model: "gpt-4o-mini" });
 
-    expect(result.content[0]).toEqual({ type: "text", text: "No response content." });
+    expect(result.content[0]).toEqual({
+      type: "text",
+      text: "No response content.",
+    });
   });
 
   it("returns a formatted error result when the API call fails", async () => {
-    mocks.responsesCreate.mockRejectedValueOnce(new OpenAIError("Missing credentials"));
+    mocks.responsesCreate.mockRejectedValueOnce(
+      new OpenAIError("Missing credentials"),
+    );
 
     const result = await generateText({ prompt: "hi", model: "gpt-4o-mini" });
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]).toEqual({ type: "text", text: "Missing credentials" });
+    expect(result.content[0]).toEqual({
+      type: "text",
+      text: "Missing credentials",
+    });
   });
 });
 
@@ -95,9 +112,15 @@ describe("generateImage", () => {
       data: [{ b64_json: "abc123" }],
     });
 
-    const result = await generateImage({ prompt: "a cat", model: "gpt-image-1", n: 1 });
+    const result = await generateImage({
+      prompt: "a cat",
+      model: "gpt-image-1",
+      n: 1,
+    });
 
-    expect(result.content).toEqual([{ type: "image", data: "abc123", mimeType: "image/png" }]);
+    expect(result.content).toEqual([
+      { type: "image", data: "abc123", mimeType: "image/png" },
+    ]);
   });
 
   it("falls back to a URL when no base64 data is present", async () => {
@@ -105,17 +128,29 @@ describe("generateImage", () => {
       data: [{ url: "https://example.com/cat.png" }],
     });
 
-    const result = await generateImage({ prompt: "a cat", model: "gpt-image-1", n: 1 });
+    const result = await generateImage({
+      prompt: "a cat",
+      model: "gpt-image-1",
+      n: 1,
+    });
 
-    expect(result.content).toEqual([{ type: "text", text: "https://example.com/cat.png" }]);
+    expect(result.content).toEqual([
+      { type: "text", text: "https://example.com/cat.png" },
+    ]);
   });
 
   it("reports when no images are returned", async () => {
     mocks.imagesGenerate.mockResolvedValueOnce({ data: [] });
 
-    const result = await generateImage({ prompt: "a cat", model: "gpt-image-1", n: 1 });
+    const result = await generateImage({
+      prompt: "a cat",
+      model: "gpt-image-1",
+      n: 1,
+    });
 
-    expect(result.content).toEqual([{ type: "text", text: "No images were returned." }]);
+    expect(result.content).toEqual([
+      { type: "text", text: "No images were returned." },
+    ]);
   });
 });
 
@@ -125,7 +160,10 @@ describe("createEmbeddings", () => {
       data: [{ index: 0, embedding: [0.1, 0.2] }],
     });
 
-    const result = await createEmbeddings({ input: "hello", model: "text-embedding-3-small" });
+    const result = await createEmbeddings({
+      input: "hello",
+      model: "text-embedding-3-small",
+    });
 
     expect(result.content[0]).toEqual({
       type: "text",
@@ -145,7 +183,10 @@ describe("listModels", () => {
 
     const result = await listModels();
 
-    expect(result.content[0]).toEqual({ type: "text", text: "gpt-3.5-turbo\ngpt-4o-mini" });
+    expect(result.content[0]).toEqual({
+      type: "text",
+      text: "gpt-3.5-turbo\ngpt-4o-mini",
+    });
   });
 
   it("reports when no models are available", async () => {
@@ -153,6 +194,9 @@ describe("listModels", () => {
 
     const result = await listModels();
 
-    expect(result.content[0]).toEqual({ type: "text", text: "No models available." });
+    expect(result.content[0]).toEqual({
+      type: "text",
+      text: "No models available.",
+    });
   });
 });

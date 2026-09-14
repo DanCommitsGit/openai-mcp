@@ -32,12 +32,12 @@ The server needs `OPENAI_API_KEY` set in its environment. Add it to your MCP cli
 
 ## Tools
 
-| Tool | Description |
-| --- | --- |
-| `generate_text` | Send a prompt to an OpenAI model and return its text reply |
-| `generate_image` | Generate an image from a text prompt |
-| `create_embeddings` | Get vector embeddings for one or more pieces of text |
-| `list_models` | List the OpenAI models available to this API key |
+| Tool                | Description                                                |
+| ------------------- | ---------------------------------------------------------- |
+| `generate_text`     | Send a prompt to an OpenAI model and return its text reply |
+| `generate_image`    | Generate an image from a text prompt                       |
+| `create_embeddings` | Get vector embeddings for one or more pieces of text       |
+| `list_models`       | List the OpenAI models available to this API key           |
 
 ## Development
 
