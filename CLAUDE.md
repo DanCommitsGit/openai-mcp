@@ -35,3 +35,12 @@ Keep this separation: schema/registration concerns stay in `index.ts`, OpenAI-ca
 ## Testing conventions
 
 Tests live alongside source as `*.test.ts` (excluded from the TS build via `tsconfig.json`). `src/tools.test.ts` mocks the `openai` module and `node:fs/promises` with `vi.hoisted`/`vi.mock` so no real API calls or disk writes happen; each tool function is tested directly against those mocks rather than through the MCP server.
+
+## OpenAI API documentation
+
+When implementing or changing OpenAI SDK calls (params, response shapes, model/size enums, new endpoints), verify against current OpenAI docs rather than training-data memory:
+
+- https://developers.openai.com/api/docs/llms.txt — index of guides (concepts, migrations, GPT Actions, changelog, etc.)
+- https://developers.openai.com/api/reference/llms.txt — index of the full API reference (endpoints grouped by resource, e.g. audio, batches, chat completions)
+
+Each is an `llms.txt` index of linked markdown pages — fetch the index first, then follow the specific page relevant to the task.
