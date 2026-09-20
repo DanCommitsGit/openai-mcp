@@ -13,7 +13,7 @@ An MCP server that exposes OpenAI API capabilities as tools for an LLM to call.
 
 ## Installation
 
-The simplest way to use the server is with `npx`. Add it to your MCP client's server configuration:
+Add the server to your MCP client's configuration. Replace `sk-...` with your OpenAI API key and set the allowed models for the tools you want to enable:
 
 ```json
 {
@@ -22,12 +22,21 @@ The simplest way to use the server is with `npx`. Add it to your MCP client's se
       "command": "npx",
       "args": ["-y", "@dancommitsgit/openai-mcp"],
       "env": {
-        "OPENAI_API_KEY": "sk-..."
+        "OPENAI_API_KEY": "sk-...",
+        "OPENAI_MCP_TEXT_MODELS": "gpt-5.4-nano",
+        "OPENAI_MCP_IMAGE_MODELS": "gpt-image-2.5-flare",
+        "OPENAI_MCP_EMBEDDING_MODELS": "text-embedding-3-small",
+        "OPENAI_MCP_SPEECH_MODELS": "gpt-4o-mini-tts",
+        "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe"
       }
     }
   }
 }
 ```
+
+Each model setting enables its corresponding tool. Omit a setting to leave that
+tool disabled. Separate multiple model IDs with commas, or use `*` to allow any
+model.
 
 ## Tools
 
@@ -36,7 +45,7 @@ The simplest way to use the server is with `npx`. Add it to your MCP client's se
 | `generate_text`     | Send a prompt, optional instructions, and optional images to an OpenAI model |
 | `generate_image`    | Generate one or more images from a text prompt                               |
 | `create_embeddings` | Get vector embeddings for one or more pieces of text                         |
-| `list_models`       | List the OpenAI models available to this API key                             |
+| `list_models`       | List available models                                                        |
 | `generate_speech`   | Convert text to spoken audio                                                 |
 | `transcribe_audio`  | Transcribe audio from a URL or local file                                    |
 
@@ -61,7 +70,12 @@ The server communicates over stdio. For local development, add the path to the c
       "command": "node",
       "args": ["/PATH/TO/openai-mcp/build/index.js"],
       "env": {
-        "OPENAI_API_KEY": "sk-..."
+        "OPENAI_API_KEY": "sk-...",
+        "OPENAI_MCP_TEXT_MODELS": "gpt-5.4-nano",
+        "OPENAI_MCP_IMAGE_MODELS": "gpt-image-2.5-flare",
+        "OPENAI_MCP_EMBEDDING_MODELS": "text-embedding-3-small",
+        "OPENAI_MCP_SPEECH_MODELS": "gpt-4o-mini-tts",
+        "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe"
       }
     }
   }

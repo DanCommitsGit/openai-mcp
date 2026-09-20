@@ -12,8 +12,8 @@ npm test
 
 The codebase is two files by design:
 
-- `src/tools.ts` — the tool implementations (`generateText`, `generateImage`, `generateSpeech`, `transcribeAudio`, `createEmbeddings`, `listModels`). Each constructs its own `OpenAI` client, calls the corresponding SDK method, and never throws — errors are caught and returned as a normal `{ content: [...], isError: true }` tool result instead of a protocol-level failure.
-- `src/index.ts` — MCP server wiring. Registers each tool from `tools.ts` with a Zod `inputSchema`, then connects over stdio. This is the only file that depends on the MCP SDK; `tools.ts` returns a plain result shape and is tested without spinning up a server.
+- `src/tools.ts` — tool implementations and allowed-model configuration helpers. OpenAI-backed tools construct their own `OpenAI` client and catch errors, returning `{ content: [...], isError: true }`. `listModels` returns configured IDs locally, or queries OpenAI when a wildcard is configured.
+- `src/index.ts` — MCP server wiring. Registers configured tools from `tools.ts` with a Zod `inputSchema`, then connects over stdio. This is the only file that depends on the MCP SDK; `tools.ts` returns a plain result shape and is tested without spinning up a server.
 
 Keep that split when adding or changing tools: OpenAI-calling logic and its return shape stay in `tools.ts`, schema/registration stays in `index.ts`.
 

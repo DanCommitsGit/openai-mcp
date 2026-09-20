@@ -37,6 +37,51 @@ export type ToolResult = {
   isError?: boolean;
 };
 
+export type AllowedOpenAIModels = {
+  textModels: readonly string[];
+  imageModels: readonly string[];
+  embeddingModels: readonly string[];
+  speechModels: readonly string[];
+  transcriptionModels: readonly string[];
+};
+
+function parseModelAllowlist(
+  modelSetting: string | undefined,
+): readonly string[] {
+  if (!modelSetting) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      modelSetting
+        .split(",")
+        .map((modelId) => modelId.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+export function parseAllowedOpenAIModels(
+  environment: NodeJS.ProcessEnv = process.env,
+): AllowedOpenAIModels {
+  const {
+    OPENAI_MCP_TEXT_MODELS: textModelSetting,
+    OPENAI_MCP_IMAGE_MODELS: imageModelSetting,
+    OPENAI_MCP_EMBEDDING_MODELS: embeddingModelSetting,
+    OPENAI_MCP_SPEECH_MODELS: speechModelSetting,
+    OPENAI_MCP_TRANSCRIPTION_MODELS: transcriptionModelSetting,
+  } = environment;
+
+  return {
+    textModels: parseModelAllowlist(textModelSetting),
+    imageModels: parseModelAllowlist(imageModelSetting),
+    embeddingModels: parseModelAllowlist(embeddingModelSetting),
+    speechModels: parseModelAllowlist(speechModelSetting),
+    transcriptionModels: parseModelAllowlist(transcriptionModelSetting),
+  };
+}
+
 // Formats accepted by the TTS API's response_format; see
 // https://developers.openai.com/api/reference/resources/audio/subresources/speech/methods/create
 export const AUDIO_FORMATS = [
@@ -241,26 +286,46 @@ export async function createEmbeddings(args: {
   }
 }
 
-export async function listModels(): Promise<ToolResult> {
-  try {
-    const client = new OpenAI();
-    const modelIds: string[] = [];
-    for await (const model of client.models.list()) {
-      modelIds.push(model.id);
-    }
-    modelIds.sort();
+export async function listModels(
+  allowedOpenAIModels: AllowedOpenAIModels,
+): Promise<ToolResult> {
+  const configuredModelIds = [
+    ...new Set(Object.values(allowedOpenAIModels).flat()),
+  ].sort();
+  const allowsAnyModel = configuredModelIds.includes("*");
 
-    return {
-      content: [
-        { type: "text", text: modelIds.join("\n") || "No models available." },
-      ],
-    };
-  } catch (error) {
-    return {
-      content: [{ type: "text", text: formatError(error) }],
-      isError: true,
-    };
+  if (allowsAnyModel) {
+    try {
+      const openAIClient = new OpenAI();
+      const availableModelIds: string[] = [];
+      for await (const availableModel of openAIClient.models.list()) {
+        availableModelIds.push(availableModel.id);
+      }
+      availableModelIds.sort();
+      return {
+        content: [
+          {
+            type: "text",
+            text: availableModelIds.join("\n") || "No models available.",
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: formatError(error) }],
+        isError: true,
+      };
+    }
   }
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: configuredModelIds.join("\n") || "No models available.",
+      },
+    ],
+  };
 }
 
 export async function generateSpeech(args: {

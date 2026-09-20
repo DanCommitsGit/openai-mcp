@@ -44,6 +44,7 @@ import {
   generateSpeech,
   generateText,
   listModels,
+  parseAllowedOpenAIModels,
   transcribeAudio,
 } from "./tools.js";
 
@@ -51,6 +52,64 @@ beforeEach(() => {
   for (const mock of Object.values(mocks)) {
     mock.mockReset();
   }
+});
+
+function createModelEnvironment(): NodeJS.ProcessEnv {
+  return {
+    OPENAI_MCP_TEXT_MODELS: "custom-text-model",
+    OPENAI_MCP_IMAGE_MODELS: "custom-image-model",
+    OPENAI_MCP_EMBEDDING_MODELS: "custom-embedding-model",
+    OPENAI_MCP_SPEECH_MODELS: "custom-speech-model",
+    OPENAI_MCP_TRANSCRIPTION_MODELS: "custom-transcription-model",
+  };
+}
+
+describe("allowed OpenAI models", () => {
+  it("disables a tool when its allowlist is missing", () => {
+    const environment = createModelEnvironment();
+    delete environment.OPENAI_MCP_TEXT_MODELS;
+
+    expect(parseAllowedOpenAIModels(environment).textModels).toEqual([]);
+  });
+
+  it("trims and deduplicates configured models", () => {
+    const allowedOpenAIModels = parseAllowedOpenAIModels({
+      ...createModelEnvironment(),
+      OPENAI_MCP_TEXT_MODELS: " gpt-5.4-nano, gpt-5.4-nano, gpt-5.4-mini ",
+    });
+
+    expect(allowedOpenAIModels.textModels).toEqual([
+      "gpt-5.4-nano",
+      "gpt-5.4-mini",
+    ]);
+  });
+
+  it("accepts independently chosen models for every tool", () => {
+    const allowedOpenAIModels = parseAllowedOpenAIModels(
+      createModelEnvironment(),
+    );
+    expect(allowedOpenAIModels.textModels).toEqual(["custom-text-model"]);
+    expect(allowedOpenAIModels.imageModels).toEqual(["custom-image-model"]);
+    expect(allowedOpenAIModels.embeddingModels).toEqual([
+      "custom-embedding-model",
+    ]);
+    expect(allowedOpenAIModels.speechModels).toEqual(["custom-speech-model"]);
+    expect(allowedOpenAIModels.transcriptionModels).toEqual([
+      "custom-transcription-model",
+    ]);
+  });
+
+  it.each(["", "  ", ", ,"])(
+    "disables a blank allowlist (%j)",
+    (modelSetting) => {
+      const allowedOpenAIModels = parseAllowedOpenAIModels({
+        ...createModelEnvironment(),
+        OPENAI_MCP_TEXT_MODELS: modelSetting,
+      });
+
+      expect(allowedOpenAIModels.textModels).toEqual([]);
+    },
+  );
 });
 
 describe("formatError", () => {
@@ -323,30 +382,76 @@ describe("createEmbeddings", () => {
 });
 
 describe("listModels", () => {
-  it("returns a sorted list of model ids", async () => {
-    mocks.modelsList.mockReturnValueOnce(
-      (async function* () {
-        yield { id: "gpt-4o-mini" };
-        yield { id: "gpt-3.5-turbo" };
-      })(),
-    );
-
-    const result = await listModels();
+  it("combines, deduplicates, and sorts all allowlists without querying OpenAI", async () => {
+    const result = await listModels({
+      textModels: ["z-model", "shared-model"],
+      imageModels: ["image-model"],
+      embeddingModels: ["embedding-model"],
+      speechModels: ["shared-model"],
+      transcriptionModels: ["a-model"],
+    });
 
     expect(result.content[0]).toEqual({
       type: "text",
-      text: "gpt-3.5-turbo\ngpt-4o-mini",
+      text: "a-model\nembedding-model\nimage-model\nshared-model\nz-model",
     });
+    expect(mocks.modelsList).not.toHaveBeenCalled();
   });
 
   it("reports when no models are available", async () => {
-    mocks.modelsList.mockReturnValueOnce((async function* () {})());
-
-    const result = await listModels();
+    const result = await listModels({
+      textModels: [],
+      imageModels: [],
+      embeddingModels: [],
+      speechModels: [],
+      transcriptionModels: [],
+    });
 
     expect(result.content[0]).toEqual({
       type: "text",
       text: "No models available.",
+    });
+  });
+
+  it("queries OpenAI when any model is allowed", async () => {
+    mocks.modelsList.mockReturnValueOnce(
+      (async function* () {
+        yield { id: "z-model" };
+        yield { id: "a-model" };
+      })(),
+    );
+
+    const result = await listModels({
+      textModels: ["*"],
+      imageModels: [],
+      embeddingModels: [],
+      speechModels: [],
+      transcriptionModels: [],
+    });
+
+    expect(result.content[0]).toEqual({
+      type: "text",
+      text: "a-model\nz-model",
+    });
+    expect(mocks.modelsList).toHaveBeenCalledOnce();
+  });
+
+  it("returns a tool error when listing available models fails", async () => {
+    mocks.modelsList.mockImplementationOnce(() => {
+      throw new Error("request failed");
+    });
+
+    const result = await listModels({
+      textModels: ["*"],
+      imageModels: [],
+      embeddingModels: [],
+      speechModels: [],
+      transcriptionModels: [],
+    });
+
+    expect(result).toEqual({
+      content: [{ type: "text", text: "request failed" }],
+      isError: true,
     });
   });
 });
