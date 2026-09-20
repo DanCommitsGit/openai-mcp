@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for agents working in this repository.
 
 ## What this is
 
@@ -27,6 +27,10 @@ The codebase is two files by design:
 - `src/index.ts` — the MCP server wiring. Registers each tool from `tools.ts` with its Zod `inputSchema` on an `McpServer`, then connects over `StdioServerTransport`. This is the only file that knows about the MCP SDK; `tools.ts` has no MCP dependency and returns a plain `ToolResult` (`{ content: ToolContent[], isError?: boolean }`), which is why it's tested directly without spinning up a server.
 
 Keep this separation: schema/registration concerns stay in `index.ts`, OpenAI-calling logic and its return shape stay in `tools.ts`.
+
+### Model configuration
+
+`OPENAI_MCP_TEXT_MODELS`, `OPENAI_MCP_IMAGE_MODELS`, `OPENAI_MCP_EMBEDDING_MODELS`, `OPENAI_MCP_SPEECH_MODELS`, and `OPENAI_MCP_TRANSCRIPTION_MODELS` configure the models accepted by their corresponding tools. An omitted or blank setting disables that tool; `*` accepts any model. Keep the configured values reflected in the Zod schemas in `src/index.ts` so clients receive the restrictions during tool discovery.
 
 ### Image generation specifics
 
@@ -59,7 +63,3 @@ When touching `src/index.ts` (tool registration, schemas, transport) or anything
 - https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio.md — stdio transport spec
 - https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices.md — security considerations and attack vectors for MCP servers
 - https://modelcontextprotocol.io/docs/2026-07-28/tools/debugging.md and https://modelcontextprotocol.io/docs/2026-07-28/tools/inspector.md — debugging a server and using the MCP Inspector
-
-## Commit attribution
-
-Add a `Co-Authored-By: Claude <noreply@anthropic.com>` trailer to a commit when Claude wrote a significant share of the changed files. Omit it when the user has fully reviewed and understands the resulting code, or was significantly involved in planning/designing the change — that marks the commit as human-owned rather than vibe-coded.
