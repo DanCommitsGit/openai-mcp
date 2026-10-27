@@ -77,6 +77,8 @@ async function main() {
     server.registerTool(
       "count_tokens",
       {
+        title: "Count tokens",
+        annotations: { readOnlyHint: true },
         description:
           "Count the input tokens a generate_text request would use, without running the model",
         inputSchema: z.object({
@@ -150,6 +152,8 @@ async function main() {
     server.registerTool(
       "edit_image",
       {
+        title: "Edit image",
+        annotations: { readOnlyHint: false, destructiveHint: true },
         description:
           "Edit or combine existing images using a text prompt and an OpenAI image model. By default returns the local file path(s) the result was saved to rather than inline image data; set returnAs to 'base64' for inline data instead",
         inputSchema: z.object({
@@ -338,6 +342,8 @@ async function main() {
     server.registerTool(
       "create_moderation",
       {
+        title: "Create moderation",
+        annotations: { readOnlyHint: true },
         description:
           "Check text for potentially harmful content using an OpenAI moderation model. Returns, for each input, whether it was flagged plus per-category flags and scores",
         inputSchema: z.object({
