@@ -43,6 +43,7 @@ export type AllowedOpenAIModels = {
   embeddingModels: readonly string[];
   speechModels: readonly string[];
   transcriptionModels: readonly string[];
+  moderationModels: readonly string[];
 };
 
 function parseModelAllowlist(
@@ -71,6 +72,7 @@ export function parseAllowedOpenAIModels(
     OPENAI_MCP_EMBEDDING_MODELS: embeddingModelSetting,
     OPENAI_MCP_SPEECH_MODELS: speechModelSetting,
     OPENAI_MCP_TRANSCRIPTION_MODELS: transcriptionModelSetting,
+    OPENAI_MCP_MODERATION_MODELS: moderationModelSetting,
   } = environment;
 
   return {
@@ -79,6 +81,7 @@ export function parseAllowedOpenAIModels(
     embeddingModels: parseModelAllowlist(embeddingModelSetting),
     speechModels: parseModelAllowlist(speechModelSetting),
     transcriptionModels: parseModelAllowlist(transcriptionModelSetting),
+    moderationModels: parseModelAllowlist(moderationModelSetting),
   };
 }
 
@@ -274,6 +277,36 @@ export async function createEmbeddings(args: {
       index: embedding.index,
       embedding: embedding.embedding,
     }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(summary) }],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: formatError(error) }],
+      isError: true,
+    };
+  }
+}
+
+export async function createModeration(args: {
+  input: string | string[];
+  model: string;
+}): Promise<ToolResult> {
+  try {
+    const client = new OpenAI();
+    const response = await client.moderations.create({
+      input: args.input,
+      model: args.model,
+    });
+
+    const summary = response.results.map(
+      ({ flagged, categories, category_scores }) => ({
+        flagged,
+        categories,
+        category_scores,
+      }),
+    );
 
     return {
       content: [{ type: "text", text: JSON.stringify(summary) }],

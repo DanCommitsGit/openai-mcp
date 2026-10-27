@@ -4,7 +4,7 @@ Guidance for agents working in this repository.
 
 ## What this is
 
-An MCP (Model Context Protocol) server that exposes the OpenAI API as tools for an LLM client to call: `generate_text`, `generate_image`, `generate_speech`, `transcribe_audio`, `create_embeddings`, `list_models`. Published to npm as `@dancommitsgit/openai-mcp`; the compiled `build/index.js` is the package's bin entry point.
+An MCP (Model Context Protocol) server that exposes the OpenAI API as tools for an LLM client to call: `generate_text`, `generate_image`, `generate_speech`, `transcribe_audio`, `create_embeddings`, `create_moderation`, `list_models`. Published to npm as `@dancommitsgit/openai-mcp`; the compiled `build/index.js` is the package's bin entry point.
 
 ## Commands
 
@@ -30,7 +30,7 @@ Keep this separation: schema/registration concerns stay in `index.ts`, OpenAI-ca
 
 ### Model configuration
 
-`OPENAI_MCP_TEXT_MODELS`, `OPENAI_MCP_IMAGE_MODELS`, `OPENAI_MCP_EMBEDDING_MODELS`, `OPENAI_MCP_SPEECH_MODELS`, and `OPENAI_MCP_TRANSCRIPTION_MODELS` configure the models accepted by their corresponding tools. An omitted or blank setting disables that tool; `*` accepts any model. Keep the configured values reflected in the Zod schemas in `src/index.ts` so clients receive the restrictions during tool discovery.
+`OPENAI_MCP_TEXT_MODELS`, `OPENAI_MCP_IMAGE_MODELS`, `OPENAI_MCP_EMBEDDING_MODELS`, `OPENAI_MCP_SPEECH_MODELS`, `OPENAI_MCP_TRANSCRIPTION_MODELS`, and `OPENAI_MCP_MODERATION_MODELS` configure the models accepted by their corresponding tools. An omitted or blank setting disables that tool; `*` accepts any model. Keep the configured values reflected in the Zod schemas in `src/index.ts` so clients receive the restrictions during tool discovery.
 
 ### Image generation specifics
 

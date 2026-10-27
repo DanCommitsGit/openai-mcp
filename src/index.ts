@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   AUDIO_FORMATS,
   createEmbeddings,
+  createModeration,
   generateImage,
   generateSpeech,
   generateText,
@@ -236,6 +237,26 @@ async function main() {
         }),
       },
       (args) => transcribeAudio(args),
+    );
+  }
+
+  if (allowedOpenAIModels.moderationModels.length > 0) {
+    server.registerTool(
+      "create_moderation",
+      {
+        description:
+          "Check text for potentially harmful content using an OpenAI moderation model. Returns, for each input, whether it was flagged plus per-category flags and scores",
+        inputSchema: z.object({
+          input: z
+            .union([z.string(), z.array(z.string())])
+            .describe("Text (or array of texts) to classify"),
+          model: createModelSelectionSchema(
+            allowedOpenAIModels.moderationModels,
+            "OpenAI model to use for moderation",
+          ),
+        }),
+      },
+      (args) => createModeration(args),
     );
   }
 

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   modelsList: vi.fn(),
   speechCreate: vi.fn(),
   transcriptionsCreate: vi.fn(),
+  moderationsCreate: vi.fn(),
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("openai", async (importOriginal) => {
     images = { generate: mocks.imagesGenerate };
     embeddings = { create: mocks.embeddingsCreate };
     models = { list: mocks.modelsList };
+    moderations = { create: mocks.moderationsCreate };
     audio = {
       speech: { create: mocks.speechCreate },
       transcriptions: { create: mocks.transcriptionsCreate },
@@ -39,6 +41,7 @@ vi.mock("node:fs/promises", () => ({
 import { APIConnectionError, APIError, OpenAIError } from "openai";
 import {
   createEmbeddings,
+  createModeration,
   formatError,
   generateImage,
   generateSpeech,
@@ -61,6 +64,7 @@ function createModelEnvironment(): NodeJS.ProcessEnv {
     OPENAI_MCP_EMBEDDING_MODELS: "custom-embedding-model",
     OPENAI_MCP_SPEECH_MODELS: "custom-speech-model",
     OPENAI_MCP_TRANSCRIPTION_MODELS: "custom-transcription-model",
+    OPENAI_MCP_MODERATION_MODELS: "custom-moderation-model",
   };
 }
 
@@ -96,6 +100,9 @@ describe("allowed OpenAI models", () => {
     expect(allowedOpenAIModels.speechModels).toEqual(["custom-speech-model"]);
     expect(allowedOpenAIModels.transcriptionModels).toEqual([
       "custom-transcription-model",
+    ]);
+    expect(allowedOpenAIModels.moderationModels).toEqual([
+      "custom-moderation-model",
     ]);
   });
 
@@ -381,6 +388,61 @@ describe("createEmbeddings", () => {
   });
 });
 
+describe("createModeration", () => {
+  it("returns flags, categories, and scores for each result", async () => {
+    mocks.moderationsCreate.mockResolvedValueOnce({
+      id: "modr-1",
+      model: "omni-moderation-latest",
+      results: [
+        {
+          flagged: true,
+          categories: { violence: true },
+          category_scores: { violence: 0.9 },
+          category_applied_input_types: { violence: ["text"] },
+        },
+      ],
+    });
+
+    const result = await createModeration({
+      input: "some text",
+      model: "omni-moderation-latest",
+    });
+
+    expect(mocks.moderationsCreate).toHaveBeenCalledWith({
+      input: "some text",
+      model: "omni-moderation-latest",
+    });
+    expect(result.content).toEqual([
+      {
+        type: "text",
+        text: JSON.stringify([
+          {
+            flagged: true,
+            categories: { violence: true },
+            category_scores: { violence: 0.9 },
+          },
+        ]),
+      },
+    ]);
+  });
+
+  it("returns a formatted error result when the API call fails", async () => {
+    mocks.moderationsCreate.mockRejectedValueOnce(
+      new OpenAIError("Missing credentials"),
+    );
+
+    const result = await createModeration({
+      input: "some text",
+      model: "omni-moderation-latest",
+    });
+
+    expect(result).toEqual({
+      content: [{ type: "text", text: "Missing credentials" }],
+      isError: true,
+    });
+  });
+});
+
 describe("listModels", () => {
   it("combines, deduplicates, and sorts all allowlists without querying OpenAI", async () => {
     const result = await listModels({
@@ -389,11 +451,12 @@ describe("listModels", () => {
       embeddingModels: ["embedding-model"],
       speechModels: ["shared-model"],
       transcriptionModels: ["a-model"],
+      moderationModels: ["moderation-model"],
     });
 
     expect(result.content[0]).toEqual({
       type: "text",
-      text: "a-model\nembedding-model\nimage-model\nshared-model\nz-model",
+      text: "a-model\nembedding-model\nimage-model\nmoderation-model\nshared-model\nz-model",
     });
     expect(mocks.modelsList).not.toHaveBeenCalled();
   });
@@ -405,6 +468,7 @@ describe("listModels", () => {
       embeddingModels: [],
       speechModels: [],
       transcriptionModels: [],
+      moderationModels: [],
     });
 
     expect(result.content[0]).toEqual({
@@ -427,6 +491,7 @@ describe("listModels", () => {
       embeddingModels: [],
       speechModels: [],
       transcriptionModels: [],
+      moderationModels: [],
     });
 
     expect(result.content[0]).toEqual({
@@ -447,6 +512,7 @@ describe("listModels", () => {
       embeddingModels: [],
       speechModels: [],
       transcriptionModels: [],
+      moderationModels: [],
     });
 
     expect(result).toEqual({

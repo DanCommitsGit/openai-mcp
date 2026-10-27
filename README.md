@@ -27,7 +27,8 @@ Add the server to your MCP client's configuration. Replace `sk-...` with your Op
         "OPENAI_MCP_IMAGE_MODELS": "gpt-image-2.5-flare",
         "OPENAI_MCP_EMBEDDING_MODELS": "text-embedding-3-small",
         "OPENAI_MCP_SPEECH_MODELS": "gpt-4o-mini-tts",
-        "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe"
+        "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe",
+        "OPENAI_MCP_MODERATION_MODELS": "omni-moderation-latest"
       }
     }
   }
@@ -45,6 +46,7 @@ model.
 | `generate_text`     | Send a prompt, optional instructions, and optional images to an OpenAI model |
 | `generate_image`    | Generate one or more images from a text prompt                               |
 | `create_embeddings` | Get vector embeddings for one or more pieces of text                         |
+| `create_moderation` | Check text for potentially harmful content                                   |
 | `list_models`       | List available models                                                        |
 | `generate_speech`   | Convert text to spoken audio                                                 |
 | `transcribe_audio`  | Transcribe audio from a URL or local file                                    |
@@ -75,7 +77,8 @@ The server communicates over stdio. For local development, add the path to the c
         "OPENAI_MCP_IMAGE_MODELS": "gpt-image-2.5-flare",
         "OPENAI_MCP_EMBEDDING_MODELS": "text-embedding-3-small",
         "OPENAI_MCP_SPEECH_MODELS": "gpt-4o-mini-tts",
-        "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe"
+        "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe",
+        "OPENAI_MCP_MODERATION_MODELS": "omni-moderation-latest"
       }
     }
   }
