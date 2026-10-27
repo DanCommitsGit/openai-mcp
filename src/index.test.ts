@@ -56,6 +56,7 @@ afterEach(() => {
 describe("model arguments", () => {
   it.each([
     ["generate_text", { prompt: "hello" }],
+    ["count_tokens", { prompt: "hello" }],
     ["generate_image", { prompt: "a cat" }],
     ["create_embeddings", { input: "hello" }],
     ["generate_speech", { input: "hello" }],
@@ -83,6 +84,7 @@ describe("model arguments", () => {
 describe("disabled tools", () => {
   it.each([
     ["OPENAI_MCP_TEXT_MODELS", "generate_text"],
+    ["OPENAI_MCP_TEXT_MODELS", "count_tokens"],
     ["OPENAI_MCP_IMAGE_MODELS", "generate_image"],
     ["OPENAI_MCP_EMBEDDING_MODELS", "create_embeddings"],
     ["OPENAI_MCP_SPEECH_MODELS", "generate_speech"],

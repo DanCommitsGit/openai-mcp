@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import {
   AUDIO_FORMATS,
+  countTokens,
   createEmbeddings,
   createModeration,
   generateImage,
@@ -68,6 +69,32 @@ async function main() {
         }),
       },
       (args) => generateText(args),
+    );
+
+    server.registerTool(
+      "count_tokens",
+      {
+        description:
+          "Count the input tokens a generate_text request would use, without running the model",
+        inputSchema: z.object({
+          prompt: z.string().describe("The input text to count"),
+          model: createModelSelectionSchema(
+            allowedOpenAIModels.textModels,
+            "OpenAI model whose tokenizer to use. Must support image input if images are provided",
+          ),
+          instructions: z
+            .string()
+            .optional()
+            .describe("Optional instructions to include in the count"),
+          images: z
+            .array(z.string())
+            .optional()
+            .describe(
+              "Images to include in the count, each as an http(s) URL or a file path on this server's filesystem (PNG, JPEG, WEBP, or GIF)",
+            ),
+        }),
+      },
+      (args) => countTokens(args),
     );
   }
 

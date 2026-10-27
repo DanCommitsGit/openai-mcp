@@ -44,6 +44,7 @@ model.
 | Tool                | Description                                                                  |
 | ------------------- | ---------------------------------------------------------------------------- |
 | `generate_text`     | Send a prompt, optional instructions, and optional images to an OpenAI model |
+| `count_tokens`      | Count the input tokens a `generate_text` request would use                   |
 | `generate_image`    | Generate one or more images from a text prompt                               |
 | `create_embeddings` | Get vector embeddings for one or more pieces of text                         |
 | `create_moderation` | Check text for potentially harmful content                                   |

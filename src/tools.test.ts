@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   responsesCreate: vi.fn(),
+  inputTokensCount: vi.fn(),
   imagesGenerate: vi.fn(),
   embeddingsCreate: vi.fn(),
   modelsList: vi.fn(),
@@ -16,7 +17,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("openai", async (importOriginal) => {
   const actual = await importOriginal<typeof import("openai")>();
   class FakeOpenAI {
-    responses = { create: mocks.responsesCreate };
+    responses = {
+      create: mocks.responsesCreate,
+      inputTokens: { count: mocks.inputTokensCount },
+    };
     images = { generate: mocks.imagesGenerate };
     embeddings = { create: mocks.embeddingsCreate };
     models = { list: mocks.modelsList };
@@ -40,6 +44,7 @@ vi.mock("node:fs/promises", () => ({
 
 import { APIConnectionError, APIError, OpenAIError } from "openai";
 import {
+  countTokens,
   createEmbeddings,
   createModeration,
   formatError,
@@ -384,6 +389,66 @@ describe("createEmbeddings", () => {
     expect(result.content[0]).toEqual({
       type: "text",
       text: JSON.stringify([{ index: 0, embedding: [0.1, 0.2] }]),
+    });
+  });
+});
+
+describe("countTokens", () => {
+  it("counts the same input generateText would send", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("png-bytes"));
+    mocks.inputTokensCount.mockResolvedValueOnce({
+      object: "response.input_tokens",
+      input_tokens: 42,
+    });
+
+    const result = await countTokens({
+      prompt: "describe this",
+      model: "gpt-5.4-nano",
+      instructions: "be brief",
+      images: ["C:/images/cat.png"],
+    });
+
+    expect(mocks.inputTokensCount).toHaveBeenCalledWith({
+      model: "gpt-5.4-nano",
+      instructions: "be brief",
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: "describe this" },
+            {
+              type: "input_image",
+              image_url: `data:image/png;base64,${Buffer.from("png-bytes").toString("base64")}`,
+              detail: "auto",
+            },
+          ],
+        },
+      ],
+    });
+    expect(result.content).toEqual([{ type: "text", text: "42" }]);
+  });
+
+  it("passes a plain prompt as a string without instructions", async () => {
+    mocks.inputTokensCount.mockResolvedValueOnce({ input_tokens: 3 });
+
+    await countTokens({ prompt: "hello", model: "gpt-5.4-nano" });
+
+    expect(mocks.inputTokensCount).toHaveBeenCalledWith({
+      model: "gpt-5.4-nano",
+      input: "hello",
+    });
+  });
+
+  it("returns a formatted error result when the API call fails", async () => {
+    mocks.inputTokensCount.mockRejectedValueOnce(
+      new OpenAIError("Missing credentials"),
+    );
+
+    const result = await countTokens({ prompt: "hello", model: "m" });
+
+    expect(result).toEqual({
+      content: [{ type: "text", text: "Missing credentials" }],
+      isError: true,
     });
   });
 });

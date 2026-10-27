@@ -143,6 +143,30 @@ async function resolveImageUrl(image: string): Promise<string> {
   return `data:${mimeType};base64,${data.toString("base64")}`;
 }
 
+async function buildResponseInput(
+  prompt: string,
+  images?: string[] | undefined,
+) {
+  if (!images?.length) {
+    return prompt;
+  }
+  return [
+    {
+      role: "user" as const,
+      content: [
+        { type: "input_text" as const, text: prompt },
+        ...(await Promise.all(
+          images.map(async (image) => ({
+            type: "input_image" as const,
+            image_url: await resolveImageUrl(image),
+            detail: "auto" as const,
+          })),
+        )),
+      ],
+    },
+  ];
+}
+
 export async function generateText(args: {
   prompt: string;
   model: string;
@@ -151,27 +175,9 @@ export async function generateText(args: {
 }): Promise<ToolResult> {
   try {
     const client = new OpenAI();
-    const input = args.images?.length
-      ? [
-          {
-            role: "user" as const,
-            content: [
-              { type: "input_text" as const, text: args.prompt },
-              ...(await Promise.all(
-                args.images.map(async (image) => ({
-                  type: "input_image" as const,
-                  image_url: await resolveImageUrl(image),
-                  detail: "auto" as const,
-                })),
-              )),
-            ],
-          },
-        ]
-      : args.prompt;
-
     const response = await client.responses.create({
       model: args.model,
-      input,
+      input: await buildResponseInput(args.prompt, args.images),
       ...(args.instructions ? { instructions: args.instructions } : {}),
     });
 
@@ -179,6 +185,31 @@ export async function generateText(args: {
       content: [
         { type: "text", text: response.output_text || "No response content." },
       ],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: formatError(error) }],
+      isError: true,
+    };
+  }
+}
+
+export async function countTokens(args: {
+  prompt: string;
+  model: string;
+  instructions?: string | undefined;
+  images?: string[] | undefined;
+}): Promise<ToolResult> {
+  try {
+    const client = new OpenAI();
+    const response = await client.responses.inputTokens.count({
+      model: args.model,
+      input: await buildResponseInput(args.prompt, args.images),
+      ...(args.instructions ? { instructions: args.instructions } : {}),
+    });
+
+    return {
+      content: [{ type: "text", text: String(response.input_tokens) }],
     };
   } catch (error) {
     return {
