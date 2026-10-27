@@ -2,6 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 const registeredToolSchemas = vi.hoisted(() => new Map<string, z.ZodType>());
+const registeredToolConfigs = vi.hoisted(
+  () =>
+    new Map<
+      string,
+      {
+        title?: string;
+        annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
+      }
+    >(),
+);
 const modelEnvironmentVariables = [
   "OPENAI_MCP_TEXT_MODELS",
   "OPENAI_MCP_IMAGE_MODELS",
@@ -16,8 +26,16 @@ type ModelEnvironmentOverrides = Partial<
 
 vi.mock("@modelcontextprotocol/server", () => ({
   McpServer: class {
-    registerTool(name: string, config: { inputSchema: z.ZodType }) {
+    registerTool(
+      name: string,
+      config: {
+        inputSchema: z.ZodType;
+        title?: string;
+        annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
+      },
+    ) {
       registeredToolSchemas.set(name, config.inputSchema);
+      registeredToolConfigs.set(name, config);
     }
     async connect() {}
   },
@@ -31,6 +49,7 @@ async function loadServerWithModelSettings(
   environmentOverrides: ModelEnvironmentOverrides = {},
 ) {
   registeredToolSchemas.clear();
+  registeredToolConfigs.clear();
   vi.resetModules();
   for (const environmentVariable of modelEnvironmentVariables) {
     vi.stubEnv(environmentVariable, "custom-model");
@@ -75,6 +94,25 @@ describe("model arguments", () => {
     expect(
       schema.safeParse({ ...toolArguments, model: "other-model" }).success,
     ).toBe(false);
+  });
+});
+
+describe("tool annotations", () => {
+  it.each([
+    ["generate_text", true],
+    ["create_embeddings", true],
+    ["list_models", true],
+    ["transcribe_audio", true],
+    ["generate_image", false],
+    ["generate_speech", false],
+  ])("declares a title and hints for %s", async (toolName, isReadOnly) => {
+    await loadServerWithModelSettings();
+    const config = registeredToolConfigs.get(toolName)!;
+    expect(config.title).toBeTruthy();
+    expect(config.annotations?.readOnlyHint).toBe(isReadOnly);
+    expect(config.annotations?.destructiveHint).toBe(
+      isReadOnly ? undefined : true,
+    );
   });
 });
 
