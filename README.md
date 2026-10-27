@@ -28,6 +28,7 @@ Add the server to your MCP client's configuration. Replace `sk-...` with your Op
         "OPENAI_MCP_EMBEDDING_MODELS": "text-embedding-3-small",
         "OPENAI_MCP_SPEECH_MODELS": "gpt-4o-mini-tts",
         "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe",
+        "OPENAI_MCP_TRANSLATION_MODELS": "whisper-1",
         "OPENAI_MCP_MODERATION_MODELS": "omni-moderation-latest"
       }
     }
@@ -48,6 +49,7 @@ model.
 | `generate_image`    | Generate one or more images from a text prompt                               |
 | `edit_image`        | Edit or combine existing images using a text prompt                          |
 | `create_embeddings` | Get vector embeddings for one or more pieces of text                         |
+| `translate_audio`   | Translate audio from a URL or local file into English text                   |
 | `create_moderation` | Check text for potentially harmful content                                   |
 | `list_models`       | List available models                                                        |
 | `generate_speech`   | Convert text to spoken audio                                                 |
@@ -80,6 +82,7 @@ The server communicates over stdio. For local development, add the path to the c
         "OPENAI_MCP_EMBEDDING_MODELS": "text-embedding-3-small",
         "OPENAI_MCP_SPEECH_MODELS": "gpt-4o-mini-tts",
         "OPENAI_MCP_TRANSCRIPTION_MODELS": "gpt-4o-mini-transcribe",
+        "OPENAI_MCP_TRANSLATION_MODELS": "whisper-1",
         "OPENAI_MCP_MODERATION_MODELS": "omni-moderation-latest"
       }
     }

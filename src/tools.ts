@@ -44,6 +44,7 @@ export type AllowedOpenAIModels = {
   embeddingModels: readonly string[];
   speechModels: readonly string[];
   transcriptionModels: readonly string[];
+  translationModels: readonly string[];
   moderationModels: readonly string[];
 };
 
@@ -73,6 +74,7 @@ export function parseAllowedOpenAIModels(
     OPENAI_MCP_EMBEDDING_MODELS: embeddingModelSetting,
     OPENAI_MCP_SPEECH_MODELS: speechModelSetting,
     OPENAI_MCP_TRANSCRIPTION_MODELS: transcriptionModelSetting,
+    OPENAI_MCP_TRANSLATION_MODELS: translationModelSetting,
     OPENAI_MCP_MODERATION_MODELS: moderationModelSetting,
   } = environment;
 
@@ -82,6 +84,7 @@ export function parseAllowedOpenAIModels(
     embeddingModels: parseModelAllowlist(embeddingModelSetting),
     speechModels: parseModelAllowlist(speechModelSetting),
     transcriptionModels: parseModelAllowlist(transcriptionModelSetting),
+    translationModels: parseModelAllowlist(translationModelSetting),
     moderationModels: parseModelAllowlist(moderationModelSetting),
   };
 }
@@ -503,6 +506,16 @@ async function resolveUploadableFile(
   return toFile(await readFile(file), basename(file));
 }
 
+function transcriptText(
+  response: string | { text: string },
+  format: TranscriptionFormat,
+): string {
+  if (typeof response === "string") {
+    return response;
+  }
+  return format === "verbose_json" ? JSON.stringify(response) : response.text;
+}
+
 export async function transcribeAudio(args: {
   file: string;
   model: string;
@@ -520,14 +533,35 @@ export async function transcribeAudio(args: {
       ...(args.prompt ? { prompt: args.prompt } : {}),
     });
 
-    const text =
-      typeof response === "string"
-        ? response
-        : args.format === "verbose_json"
-          ? JSON.stringify(response)
-          : response.text;
+    return {
+      content: [{ type: "text", text: transcriptText(response, args.format) }],
+    };
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: formatError(error) }],
+      isError: true,
+    };
+  }
+}
 
-    return { content: [{ type: "text", text }] };
+export async function translateAudio(args: {
+  file: string;
+  model: string;
+  prompt?: string | undefined;
+  format: TranscriptionFormat;
+}): Promise<ToolResult> {
+  try {
+    const client = new OpenAI();
+    const response = await client.audio.translations.create({
+      file: await resolveUploadableFile(args.file, "audio"),
+      model: args.model,
+      response_format: args.format,
+      ...(args.prompt ? { prompt: args.prompt } : {}),
+    });
+
+    return {
+      content: [{ type: "text", text: transcriptText(response, args.format) }],
+    };
   } catch (error) {
     return {
       content: [{ type: "text", text: formatError(error) }],

@@ -16,6 +16,7 @@ import {
   parseAllowedOpenAIModels,
   transcribeAudio,
   TRANSCRIPTION_FORMATS,
+  translateAudio,
 } from "./tools.js";
 
 function createModelSelectionSchema(
@@ -335,6 +336,42 @@ async function main() {
         }),
       },
       (args) => transcribeAudio(args),
+    );
+  }
+
+  if (allowedOpenAIModels.translationModels.length > 0) {
+    server.registerTool(
+      "translate_audio",
+      {
+        title: "Translate audio",
+        annotations: { readOnlyHint: true },
+        description:
+          "Translate spoken audio in any supported language into English text using an OpenAI speech-to-text model",
+        inputSchema: z.object({
+          file: z
+            .string()
+            .describe(
+              "Audio to translate, as an http(s) URL or a file path on this server's filesystem (flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, or webm)",
+            ),
+          model: createModelSelectionSchema(
+            allowedOpenAIModels.translationModels,
+            "OpenAI model to use for audio translation",
+          ),
+          prompt: z
+            .string()
+            .optional()
+            .describe(
+              "Optional English text to guide the model's style or vocabulary, or to continue a previous audio segment",
+            ),
+          format: z
+            .enum(TRANSCRIPTION_FORMATS)
+            .default("json")
+            .describe(
+              "Output format. 'verbose_json' includes segment timestamps",
+            ),
+        }),
+      },
+      (args) => translateAudio(args),
     );
   }
 

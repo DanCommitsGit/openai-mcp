@@ -18,6 +18,7 @@ const modelEnvironmentVariables = [
   "OPENAI_MCP_EMBEDDING_MODELS",
   "OPENAI_MCP_SPEECH_MODELS",
   "OPENAI_MCP_TRANSCRIPTION_MODELS",
+  "OPENAI_MCP_TRANSLATION_MODELS",
   "OPENAI_MCP_MODERATION_MODELS",
 ] as const;
 type ModelEnvironmentVariable = (typeof modelEnvironmentVariables)[number];
@@ -81,6 +82,7 @@ describe("model arguments", () => {
     ["create_embeddings", { input: "hello" }],
     ["generate_speech", { input: "hello" }],
     ["transcribe_audio", { file: "clip.mp3" }],
+    ["translate_audio", { file: "clip.mp3" }],
     ["create_moderation", { input: "hello" }],
   ])("requires an explicit model for %s", async (toolName, toolArguments) => {
     await loadServerWithModelSettings();
@@ -107,6 +109,7 @@ describe("tool annotations", () => {
     ["create_embeddings", true],
     ["list_models", true],
     ["transcribe_audio", true],
+    ["translate_audio", true],
     ["generate_image", false],
     ["generate_speech", false],
   ])("declares a title and hints for %s", async (toolName, isReadOnly) => {
@@ -142,6 +145,7 @@ describe("disabled tools", () => {
     ["OPENAI_MCP_EMBEDDING_MODELS", "create_embeddings"],
     ["OPENAI_MCP_SPEECH_MODELS", "generate_speech"],
     ["OPENAI_MCP_TRANSCRIPTION_MODELS", "transcribe_audio"],
+    ["OPENAI_MCP_TRANSLATION_MODELS", "translate_audio"],
     ["OPENAI_MCP_MODERATION_MODELS", "create_moderation"],
   ] as const)(
     "omits %s when it is not configured",
@@ -165,6 +169,7 @@ describe("wildcard model settings", () => {
       "transcribe_audio",
       { file: "clip.mp3" },
     ],
+    ["OPENAI_MCP_TRANSLATION_MODELS", "translate_audio", { file: "clip.mp3" }],
     ["OPENAI_MCP_MODERATION_MODELS", "create_moderation", { input: "hello" }],
   ] as const)(
     "allows any model for %s",

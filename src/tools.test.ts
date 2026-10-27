@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   modelsList: vi.fn(),
   speechCreate: vi.fn(),
   transcriptionsCreate: vi.fn(),
+  translationsCreate: vi.fn(),
   moderationsCreate: vi.fn(),
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
@@ -29,6 +30,7 @@ vi.mock("openai", async (importOriginal) => {
     audio = {
       speech: { create: mocks.speechCreate },
       transcriptions: { create: mocks.transcriptionsCreate },
+      translations: { create: mocks.translationsCreate },
     };
   }
   return {
@@ -56,6 +58,7 @@ import {
   listModels,
   parseAllowedOpenAIModels,
   transcribeAudio,
+  translateAudio,
 } from "./tools.js";
 
 beforeEach(() => {
@@ -71,6 +74,7 @@ function createModelEnvironment(): NodeJS.ProcessEnv {
     OPENAI_MCP_EMBEDDING_MODELS: "custom-embedding-model",
     OPENAI_MCP_SPEECH_MODELS: "custom-speech-model",
     OPENAI_MCP_TRANSCRIPTION_MODELS: "custom-transcription-model",
+    OPENAI_MCP_TRANSLATION_MODELS: "custom-translation-model",
     OPENAI_MCP_MODERATION_MODELS: "custom-moderation-model",
   };
 }
@@ -107,6 +111,9 @@ describe("allowed OpenAI models", () => {
     expect(allowedOpenAIModels.speechModels).toEqual(["custom-speech-model"]);
     expect(allowedOpenAIModels.transcriptionModels).toEqual([
       "custom-transcription-model",
+    ]);
+    expect(allowedOpenAIModels.translationModels).toEqual([
+      "custom-translation-model",
     ]);
     expect(allowedOpenAIModels.moderationModels).toEqual([
       "custom-moderation-model",
@@ -629,12 +636,13 @@ describe("listModels", () => {
       embeddingModels: ["embedding-model"],
       speechModels: ["shared-model"],
       transcriptionModels: ["a-model"],
+      translationModels: ["translation-model"],
       moderationModels: ["moderation-model"],
     });
 
     expect(result.content[0]).toEqual({
       type: "text",
-      text: "a-model\nembedding-model\nimage-model\nmoderation-model\nshared-model\nz-model",
+      text: "a-model\nembedding-model\nimage-model\nmoderation-model\nshared-model\ntranslation-model\nz-model",
     });
     expect(mocks.modelsList).not.toHaveBeenCalled();
   });
@@ -646,6 +654,7 @@ describe("listModels", () => {
       embeddingModels: [],
       speechModels: [],
       transcriptionModels: [],
+      translationModels: [],
       moderationModels: [],
     });
 
@@ -669,6 +678,7 @@ describe("listModels", () => {
       embeddingModels: [],
       speechModels: [],
       transcriptionModels: [],
+      translationModels: [],
       moderationModels: [],
     });
 
@@ -690,6 +700,7 @@ describe("listModels", () => {
       embeddingModels: [],
       speechModels: [],
       transcriptionModels: [],
+      translationModels: [],
       moderationModels: [],
     });
 
@@ -877,6 +888,91 @@ describe("transcribeAudio", () => {
       /Failed to download audio/,
     );
     expect(mocks.transcriptionsCreate).not.toHaveBeenCalled();
+    fetchMock.mockRestore();
+  });
+});
+
+describe("translateAudio", () => {
+  it("reads a local audio file and returns the English text", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-audio-bytes"));
+    mocks.translationsCreate.mockResolvedValueOnce({ text: "hello world" });
+
+    const result = await translateAudio({
+      file: "C:/audio/clip.mp3",
+      model: "whisper-1",
+      format: "json",
+    });
+
+    expect(mocks.readFile).toHaveBeenCalledWith("C:/audio/clip.mp3");
+    expect(mocks.translationsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "whisper-1", response_format: "json" }),
+    );
+    expect(result.content).toEqual([{ type: "text", text: "hello world" }]);
+  });
+
+  it("passes the prompt through when provided", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-audio-bytes"));
+    mocks.translationsCreate.mockResolvedValueOnce({ text: "hi" });
+
+    await translateAudio({
+      file: "C:/audio/clip.mp3",
+      model: "whisper-1",
+      prompt: "names: Ana, Luis",
+      format: "json",
+    });
+
+    expect(mocks.translationsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: "names: Ana, Luis" }),
+    );
+  });
+
+  it("returns the full JSON payload for verbose_json format", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-audio-bytes"));
+    const verbose = { text: "hi", duration: 1.2, language: "english" };
+    mocks.translationsCreate.mockResolvedValueOnce(verbose);
+
+    const result = await translateAudio({
+      file: "C:/audio/clip.mp3",
+      model: "whisper-1",
+      format: "verbose_json",
+    });
+
+    expect(result.content).toEqual([
+      { type: "text", text: JSON.stringify(verbose) },
+    ]);
+  });
+
+  it("returns a plain string response as-is for text format", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("fake-audio-bytes"));
+    mocks.translationsCreate.mockResolvedValueOnce("hello world");
+
+    const result = await translateAudio({
+      file: "C:/audio/clip.mp3",
+      model: "whisper-1",
+      format: "text",
+    });
+
+    expect(result.content).toEqual([{ type: "text", text: "hello world" }]);
+  });
+
+  it("returns a formatted error when a remote download fails", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+    } as Response);
+
+    const result = await translateAudio({
+      file: "https://example.com/missing.mp3",
+      model: "whisper-1",
+      format: "json",
+    });
+
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as { text: string }).text).toMatch(
+      /Failed to download audio/,
+    );
+    expect(mocks.translationsCreate).not.toHaveBeenCalled();
     fetchMock.mockRestore();
   });
 });
