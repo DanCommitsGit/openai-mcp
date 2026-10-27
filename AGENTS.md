@@ -32,6 +32,10 @@ Keep this separation: schema/registration concerns stay in `index.ts`, OpenAI-ca
 
 `OPENAI_MCP_TEXT_MODELS`, `OPENAI_MCP_IMAGE_MODELS`, `OPENAI_MCP_EMBEDDING_MODELS`, `OPENAI_MCP_SPEECH_MODELS`, and `OPENAI_MCP_TRANSCRIPTION_MODELS` configure the models accepted by their corresponding tools. An omitted or blank setting disables that tool; `*` accepts any model. Keep the configured values reflected in the Zod schemas in `src/index.ts` so clients receive the restrictions during tool discovery.
 
+### Tool annotations
+
+Every tool registered in `src/index.ts` needs a `title` and `annotations` with either `readOnlyHint: true` or `readOnlyHint: false` plus `destructiveHint: true`. Claude groups a connector's tools into read-only and write/delete sections from these hints, and uses them to decide which tools run without per-call approval; tools without them end up under "Other tools". A tool that writes to the filesystem, such as `generate_image` and `generate_speech`, is destructive because `outputPath` can overwrite an existing file. `src/index.test.ts` fails if a registered tool is missing them.
+
 ### Image generation specifics
 
 `generate_image` defaults to `returnAs: "path"` (saves the image to disk and returns the file path) rather than inline base64, specifically to avoid exceeding an MCP client's tool-result size limit — keep this default when touching that tool. `resolveImagePath` in `tools.ts` handles the multi-image case by inserting a 1-based index before the file extension when `n > 1` and an explicit `outputPath` is given. Valid `size` values are enum-checked against `IMAGE_SIZES` and vary by model (GPT image models vs. `dall-e-2` vs. `dall-e-3`).

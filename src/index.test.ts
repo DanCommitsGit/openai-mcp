@@ -114,6 +114,19 @@ describe("tool annotations", () => {
       isReadOnly ? undefined : true,
     );
   });
+
+  it("declares a title and a read-only or destructive hint on every registered tool", async () => {
+    await loadServerWithModelSettings();
+    expect(registeredToolConfigs.size).toBeGreaterThan(0);
+    for (const [toolName, config] of registeredToolConfigs) {
+      expect(config.title, `${toolName} title`).toBeTruthy();
+      const { readOnlyHint, destructiveHint } = config.annotations ?? {};
+      expect(
+        readOnlyHint === true || (readOnlyHint === false && destructiveHint),
+        `${toolName} annotations`,
+      ).toBeTruthy();
+    }
+  });
 });
 
 describe("disabled tools", () => {
