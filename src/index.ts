@@ -7,6 +7,7 @@ import {
   countTokens,
   createEmbeddings,
   createModeration,
+  editImage,
   generateImage,
   generateSpeech,
   generateText,
@@ -140,6 +141,60 @@ async function main() {
         }),
       },
       (args) => generateImage(args),
+    );
+
+    server.registerTool(
+      "edit_image",
+      {
+        description:
+          "Edit or combine existing images using a text prompt and an OpenAI image model. By default returns the local file path(s) the result was saved to rather than inline image data; set returnAs to 'base64' for inline data instead",
+        inputSchema: z.object({
+          prompt: z.string().describe("Description of the edit to make"),
+          model: createModelSelectionSchema(
+            allowedOpenAIModels.imageModels,
+            "OpenAI model to use for image editing. GPT image models and dall-e-2 support editing; dall-e-3 does not",
+          ),
+          images: z
+            .array(z.string())
+            .min(1)
+            .max(16)
+            .describe(
+              "Images to edit, each as an http(s) URL or a file path on this server's filesystem. GPT image models accept up to 16 PNG, WEBP, or JPEG files under 50MB; dall-e-2 accepts a single square PNG under 4MB",
+            ),
+          mask: z
+            .string()
+            .optional()
+            .describe(
+              "Optional PNG mask, as an http(s) URL or a file path, with the same dimensions as the first image. Fully transparent areas mark where the image should be edited",
+            ),
+          size: z
+            .enum(IMAGE_SIZES)
+            .optional()
+            .describe(
+              "Image dimensions. GPT image models accept 1024x1024, 1536x1024, 1024x1536, or auto; dall-e-2 accepts 256x256, 512x512, or 1024x1024",
+            ),
+          n: z
+            .number()
+            .int()
+            .min(1)
+            .max(10)
+            .default(1)
+            .describe("Number of edited images to generate (1-10)"),
+          returnAs: z
+            .enum(["path", "base64"])
+            .default("path")
+            .describe(
+              "How to return edited images. 'path' (default) saves each image to disk and returns its file path, avoiding the large inline payloads that can exceed an MCP client's tool result size limit. 'base64' returns the image data inline instead, which is more likely to hit that limit for anything but small images",
+            ),
+          outputPath: z
+            .string()
+            .optional()
+            .describe(
+              "File path to save the image to when returnAs is 'path'. Ignored when returnAs is 'base64'. If n > 1, a 1-based index is inserted before the file extension for each image. Defaults to a temp file if omitted",
+            ),
+        }),
+      },
+      (args) => editImage(args),
     );
   }
 

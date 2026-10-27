@@ -4,7 +4,7 @@ Guidance for agents working in this repository.
 
 ## What this is
 
-An MCP (Model Context Protocol) server that exposes the OpenAI API as tools for an LLM client to call: `generate_text`, `count_tokens`, `generate_image`, `generate_speech`, `transcribe_audio`, `create_embeddings`, `create_moderation`, `list_models`. Published to npm as `@dancommitsgit/openai-mcp`; the compiled `build/index.js` is the package's bin entry point.
+An MCP (Model Context Protocol) server that exposes the OpenAI API as tools for an LLM client to call: `generate_text`, `count_tokens`, `generate_image`, `edit_image`, `generate_speech`, `transcribe_audio`, `create_embeddings`, `create_moderation`, `list_models`. Published to npm as `@dancommitsgit/openai-mcp`; the compiled `build/index.js` is the package's bin entry point.
 
 ## Commands
 

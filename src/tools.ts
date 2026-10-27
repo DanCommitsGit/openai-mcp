@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, parse } from "node:path";
 import OpenAI, { APIError, OpenAIError, toFile, type Uploadable } from "openai";
+import type { ImagesResponse } from "openai/resources/images";
 
 export function formatError(error: unknown): string {
   if (error instanceof APIError) {
@@ -237,6 +238,44 @@ function resolveImagePath(
   return join(dir, `${name}-${index + 1}${ext || `.${extension}`}`);
 }
 
+async function imagesToToolResult(
+  response: ImagesResponse,
+  returnAs: "path" | "base64",
+  outputPath: string | undefined,
+): Promise<ToolResult> {
+  const images = response.data ?? [];
+  if (images.length === 0) {
+    return { content: [{ type: "text", text: "No images were returned." }] };
+  }
+
+  const extension = response.output_format ?? "png";
+  const mimeType = `image/${extension}`;
+  const content: ToolContent[] = await Promise.all(
+    images.map(async (image, index): Promise<ToolContent> => {
+      if (!image.b64_json) {
+        return {
+          type: "text",
+          text: image.url ?? "Image returned with no data.",
+        };
+      }
+      if (returnAs === "base64") {
+        return { type: "image", data: image.b64_json, mimeType };
+      }
+      const filePath = resolveImagePath(
+        outputPath,
+        extension,
+        index,
+        images.length,
+      );
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeFile(filePath, Buffer.from(image.b64_json, "base64"));
+      return { type: "text", text: filePath };
+    }),
+  );
+
+  return { content };
+}
+
 export async function generateImage(args: {
   prompt: string;
   model: string;
@@ -254,37 +293,41 @@ export async function generateImage(args: {
       ...(args.size ? { size: args.size } : {}),
     });
 
-    const images = response.data ?? [];
-    if (images.length === 0) {
-      return { content: [{ type: "text", text: "No images were returned." }] };
-    }
+    return await imagesToToolResult(response, args.returnAs, args.outputPath);
+  } catch (error) {
+    return {
+      content: [{ type: "text", text: formatError(error) }],
+      isError: true,
+    };
+  }
+}
 
-    const extension = response.output_format ?? "png";
-    const mimeType = `image/${extension}`;
-    const content: ToolContent[] = await Promise.all(
-      images.map(async (image, index): Promise<ToolContent> => {
-        if (!image.b64_json) {
-          return {
-            type: "text",
-            text: image.url ?? "Image returned with no data.",
-          };
-        }
-        if (args.returnAs === "base64") {
-          return { type: "image", data: image.b64_json, mimeType };
-        }
-        const filePath = resolveImagePath(
-          args.outputPath,
-          extension,
-          index,
-          images.length,
-        );
-        await mkdir(dirname(filePath), { recursive: true });
-        await writeFile(filePath, Buffer.from(image.b64_json, "base64"));
-        return { type: "text", text: filePath };
-      }),
-    );
+export async function editImage(args: {
+  prompt: string;
+  model: string;
+  images: string[];
+  mask?: string | undefined;
+  size?: string | undefined;
+  n: number;
+  returnAs: "path" | "base64";
+  outputPath?: string | undefined;
+}): Promise<ToolResult> {
+  try {
+    const client = new OpenAI();
+    const response = await client.images.edit({
+      prompt: args.prompt,
+      model: args.model,
+      n: args.n,
+      image: await Promise.all(
+        args.images.map((image) => resolveUploadableFile(image, "image")),
+      ),
+      ...(args.mask
+        ? { mask: await resolveUploadableFile(args.mask, "image") }
+        : {}),
+      ...(args.size ? { size: args.size } : {}),
+    });
 
-    return { content };
+    return await imagesToToolResult(response, args.returnAs, args.outputPath);
   } catch (error) {
     return {
       content: [{ type: "text", text: formatError(error) }],
@@ -440,18 +483,22 @@ export async function generateSpeech(args: {
   }
 }
 
-// http(s) URLs are downloaded first since the transcription API requires an
-// uploaded file rather than a URL reference; local paths are read directly.
-async function resolveAudioFile(file: string): Promise<Uploadable> {
+// http(s) URLs are downloaded first since the audio and image upload endpoints
+// require an uploaded file rather than a URL reference; local paths are read
+// directly.
+async function resolveUploadableFile(
+  file: string,
+  kind: "audio" | "image",
+): Promise<Uploadable> {
   if (/^https?:\/\//i.test(file)) {
     const response = await fetch(file);
     if (!response.ok) {
       throw new Error(
-        `Failed to download audio from "${file}": ${response.status} ${response.statusText}`,
+        `Failed to download ${kind} from "${file}": ${response.status} ${response.statusText}`,
       );
     }
     const data = Buffer.from(await response.arrayBuffer());
-    return toFile(data, basename(new URL(file).pathname) || "audio");
+    return toFile(data, basename(new URL(file).pathname) || kind);
   }
   return toFile(await readFile(file), basename(file));
 }
@@ -466,7 +513,7 @@ export async function transcribeAudio(args: {
   try {
     const client = new OpenAI();
     const response = await client.audio.transcriptions.create({
-      file: await resolveAudioFile(args.file),
+      file: await resolveUploadableFile(args.file, "audio"),
       model: args.model,
       response_format: args.format,
       ...(args.language ? { language: args.language } : {}),

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   responsesCreate: vi.fn(),
   inputTokensCount: vi.fn(),
   imagesGenerate: vi.fn(),
+  imagesEdit: vi.fn(),
   embeddingsCreate: vi.fn(),
   modelsList: vi.fn(),
   speechCreate: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock("openai", async (importOriginal) => {
       create: mocks.responsesCreate,
       inputTokens: { count: mocks.inputTokensCount },
     };
-    images = { generate: mocks.imagesGenerate };
+    images = { generate: mocks.imagesGenerate, edit: mocks.imagesEdit };
     embeddings = { create: mocks.embeddingsCreate };
     models = { list: mocks.modelsList };
     moderations = { create: mocks.moderationsCreate };
@@ -47,6 +48,7 @@ import {
   countTokens,
   createEmbeddings,
   createModeration,
+  editImage,
   formatError,
   generateImage,
   generateSpeech,
@@ -372,6 +374,117 @@ describe("generateImage", () => {
     expect(result.content).toEqual([
       { type: "text", text: "No images were returned." },
     ]);
+  });
+});
+
+describe("editImage", () => {
+  it("uploads local images and a mask, then saves the result to outputPath", async () => {
+    mocks.readFile
+      .mockResolvedValueOnce(Buffer.from("source-bytes"))
+      .mockResolvedValueOnce(Buffer.from("mask-bytes"));
+    mocks.imagesEdit.mockResolvedValueOnce({
+      output_format: "png",
+      data: [{ b64_json: "abc123" }],
+    });
+
+    const result = await editImage({
+      prompt: "add a hat",
+      model: "gpt-image-1",
+      images: ["C:/images/cat.png"],
+      mask: "C:/images/mask.png",
+      n: 1,
+      returnAs: "path",
+      outputPath: "C:/images/cat-hat.png",
+    });
+
+    expect(mocks.readFile).toHaveBeenCalledWith("C:/images/cat.png");
+    expect(mocks.readFile).toHaveBeenCalledWith("C:/images/mask.png");
+    const request = mocks.imagesEdit.mock.calls[0][0];
+    expect(request).toMatchObject({
+      prompt: "add a hat",
+      model: "gpt-image-1",
+      n: 1,
+    });
+    expect(request.image).toHaveLength(1);
+    expect(request.image[0].name).toBe("cat.png");
+    expect(request.mask.name).toBe("mask.png");
+    expect(mocks.writeFile).toHaveBeenCalledWith(
+      "C:/images/cat-hat.png",
+      expect.anything(),
+    );
+    expect(result.content).toEqual([
+      { type: "text", text: "C:/images/cat-hat.png" },
+    ]);
+  });
+
+  it("downloads remote images and returns inline data when returnAs is base64", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode("source-bytes").buffer,
+    } as Response);
+    mocks.imagesEdit.mockResolvedValueOnce({
+      output_format: "webp",
+      data: [{ b64_json: "abc123" }],
+    });
+
+    const result = await editImage({
+      prompt: "add a hat",
+      model: "gpt-image-1",
+      images: ["https://example.com/cat.png"],
+      n: 1,
+      returnAs: "base64",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/cat.png");
+    expect(mocks.imagesEdit.mock.calls[0][0]).not.toHaveProperty("mask");
+    expect(mocks.writeFile).not.toHaveBeenCalled();
+    expect(result.content).toEqual([
+      { type: "image", data: "abc123", mimeType: "image/webp" },
+    ]);
+    fetchMock.mockRestore();
+  });
+
+  it("returns a formatted error when a remote download fails", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+    } as Response);
+
+    const result = await editImage({
+      prompt: "add a hat",
+      model: "gpt-image-1",
+      images: ["https://example.com/missing.png"],
+      n: 1,
+      returnAs: "path",
+    });
+
+    expect(result.isError).toBe(true);
+    expect((result.content[0] as { text: string }).text).toMatch(
+      /Failed to download image/,
+    );
+    expect(mocks.imagesEdit).not.toHaveBeenCalled();
+    fetchMock.mockRestore();
+  });
+
+  it("returns a formatted error result when the API call fails", async () => {
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("source-bytes"));
+    mocks.imagesEdit.mockRejectedValueOnce(
+      new OpenAIError("Missing credentials"),
+    );
+
+    const result = await editImage({
+      prompt: "add a hat",
+      model: "gpt-image-1",
+      images: ["C:/images/cat.png"],
+      n: 1,
+      returnAs: "path",
+    });
+
+    expect(result).toEqual({
+      content: [{ type: "text", text: "Missing credentials" }],
+      isError: true,
+    });
   });
 });
 
