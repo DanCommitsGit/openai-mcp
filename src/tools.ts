@@ -501,9 +501,35 @@ async function resolveUploadableFile(
       );
     }
     const data = Buffer.from(await response.arrayBuffer());
-    return toFile(data, basename(new URL(file).pathname) || kind);
+    const fileName = basename(new URL(file).pathname) || kind;
+    return toFile(
+      data,
+      fileName,
+      uploadOptions(kind, fileName, response.headers),
+    );
   }
-  return toFile(await readFile(file), basename(file));
+  const fileName = basename(file);
+  return toFile(await readFile(file), fileName, uploadOptions(kind, fileName));
+}
+
+// The image endpoints reject uploads without an image MIME type, and toFile
+// does not infer one from the file name.
+function uploadOptions(
+  kind: "audio" | "image",
+  fileName: string,
+  responseHeaders?: Headers,
+): { type: string } | undefined {
+  if (kind !== "image") {
+    return undefined;
+  }
+  const headerType = responseHeaders
+    ?.get("content-type")
+    ?.split(";")[0]
+    ?.trim();
+  const type = headerType?.startsWith("image/")
+    ? headerType
+    : IMAGE_INPUT_MIME_TYPES[extname(fileName).toLowerCase()];
+  return type ? { type } : undefined;
 }
 
 function transcriptText(

@@ -414,7 +414,9 @@ describe("editImage", () => {
     });
     expect(request.image).toHaveLength(1);
     expect(request.image[0].name).toBe("cat.png");
+    expect(request.image[0].type).toBe("image/png");
     expect(request.mask.name).toBe("mask.png");
+    expect(request.mask.type).toBe("image/png");
     expect(mocks.writeFile).toHaveBeenCalledWith(
       "C:/images/cat-hat.png",
       expect.anything(),
@@ -427,6 +429,7 @@ describe("editImage", () => {
   it("downloads remote images and returns inline data when returnAs is base64", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
+      headers: new Headers({ "content-type": "image/webp; charset=binary" }),
       arrayBuffer: async () => new TextEncoder().encode("source-bytes").buffer,
     } as Response);
     mocks.imagesEdit.mockResolvedValueOnce({
@@ -444,6 +447,7 @@ describe("editImage", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("https://example.com/cat.png");
     expect(mocks.imagesEdit.mock.calls[0][0]).not.toHaveProperty("mask");
+    expect(mocks.imagesEdit.mock.calls[0][0].image[0].type).toBe("image/webp");
     expect(mocks.writeFile).not.toHaveBeenCalled();
     expect(result.content).toEqual([
       { type: "image", data: "abc123", mimeType: "image/webp" },
