@@ -47,6 +47,8 @@ async function main() {
     server.registerTool(
       "generate_text",
       {
+        title: "Generate text",
+        annotations: { readOnlyHint: true },
         description:
           "Send a prompt to an OpenAI model and return its text reply. Pass images to ask a vision-capable model about them",
         inputSchema: z.object({
@@ -103,6 +105,8 @@ async function main() {
     server.registerTool(
       "generate_image",
       {
+        title: "Generate image",
+        annotations: { readOnlyHint: false, destructiveHint: true },
         description:
           "Generate an image from a text prompt using an OpenAI image model. By default returns the local file path(s) the image was saved to rather than inline image data; set returnAs to 'base64' for inline data instead",
         inputSchema: z.object({
@@ -202,6 +206,8 @@ async function main() {
     server.registerTool(
       "create_embeddings",
       {
+        title: "Create embeddings",
+        annotations: { readOnlyHint: true },
         description: "Get vector embeddings for one or more pieces of text",
         inputSchema: z.object({
           input: z
@@ -220,6 +226,8 @@ async function main() {
   server.registerTool(
     "list_models",
     {
+      title: "List models",
+      annotations: { readOnlyHint: true },
       description:
         "List available OpenAI models. Returns configured models unless a tool allows any model",
       inputSchema: z.object({}),
@@ -231,6 +239,8 @@ async function main() {
     server.registerTool(
       "generate_speech",
       {
+        title: "Generate speech",
+        annotations: { readOnlyHint: false, destructiveHint: true },
         description:
           "Convert text to spoken audio using an OpenAI text-to-speech model. By default returns the local file path the audio was saved to rather than inline data; set returnAs to 'base64' for inline audio instead",
         inputSchema: z.object({
@@ -286,6 +296,8 @@ async function main() {
     server.registerTool(
       "transcribe_audio",
       {
+        title: "Transcribe audio",
+        annotations: { readOnlyHint: true },
         description:
           "Transcribe spoken audio to text using an OpenAI speech-to-text model",
         inputSchema: z.object({
