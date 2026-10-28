@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
@@ -18,6 +19,10 @@ import {
   TRANSCRIPTION_FORMATS,
   translateAudio,
 } from "./tools.js";
+
+const { version: packageVersion } = createRequire(import.meta.url)(
+  "../package.json",
+) as { version: string };
 
 function createModelSelectionSchema(
   allowedModels: readonly string[],
@@ -41,7 +46,7 @@ async function main() {
   const allowedOpenAIModels = parseAllowedOpenAIModels();
   const server = new McpServer({
     name: "openai-mcp",
-    version: "0.1.0",
+    version: packageVersion,
   });
 
   if (allowedOpenAIModels.textModels.length > 0) {
