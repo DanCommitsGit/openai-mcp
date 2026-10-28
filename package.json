@@ -1,7 +1,7 @@
 {
   "name": "@dancommitsgit/openai-mcp",
   "version": "1.0.0",
-  "description": "MCP server for the OpenAI API",
+  "description": "MCP server that gives Claude, Cursor and other MCP clients access to OpenAI text, image, speech, transcription, embeddings and moderation",
   "bin": {
     "openai-mcp": "build/index.js"
   },
@@ -26,7 +26,22 @@
     "type": "git",
     "url": "git+https://github.com/DanCommitsGit/openai-mcp.git"
   },
-  "keywords": [],
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "openai",
+    "chatgpt",
+    "gpt",
+    "claude",
+    "cursor",
+    "image-generation",
+    "text-to-speech",
+    "speech-to-text",
+    "whisper",
+    "embeddings",
+    "moderation"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
