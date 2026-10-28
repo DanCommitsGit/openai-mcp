@@ -346,7 +346,7 @@ async function main() {
         title: "Translate audio",
         annotations: { readOnlyHint: true },
         description:
-          "Translate spoken audio in any supported language into English text using an OpenAI speech-to-text model",
+          "Translate spoken audio in any supported language into English text using an OpenAI speech-to-text model. Output may occasionally come back untranslated, in its original language",
         inputSchema: z.object({
           file: z
             .string()
