@@ -4,6 +4,8 @@
 [![CI](https://github.com/DanCommitsGit/openai-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/DanCommitsGit/openai-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[![openai-mcp MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/DanCommitsGit/openai-mcp/badges/card.svg)](https://glama.ai/mcp/servers/DanCommitsGit/openai-mcp)
+
 Use OpenAI models from Claude, Cursor and any other MCP client: text, images, speech, transcription, embeddings and moderation.
 
 ## Features
