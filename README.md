@@ -124,18 +124,18 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to run the tests and open a pull request.
 
 ## Tools
 
-| Tool                | Needs                             | Description                                                                  |
-| ------------------- | --------------------------------- | ---------------------------------------------------------------------------- |
-| `generate_text`     | `OPENAI_MCP_TEXT_MODELS`          | Send a prompt, optional instructions, and optional images to an OpenAI model |
-| `count_tokens`      | `OPENAI_MCP_TEXT_MODELS`          | Count the input tokens a `generate_text` request would use                   |
-| `generate_image`    | `OPENAI_MCP_IMAGE_MODELS`         | Generate one or more images from a text prompt                               |
-| `edit_image`        | `OPENAI_MCP_IMAGE_MODELS`         | Edit or combine existing images using a text prompt                          |
-| `generate_speech`   | `OPENAI_MCP_SPEECH_MODELS`        | Convert text to spoken audio                                                 |
-| `transcribe_audio`  | `OPENAI_MCP_TRANSCRIPTION_MODELS` | Transcribe audio from a URL or local file                                    |
-| `translate_audio`   | `OPENAI_MCP_TRANSLATION_MODELS`   | Translate audio from a URL or local file into English text                   |
-| `create_embeddings` | `OPENAI_MCP_EMBEDDING_MODELS`     | Get vector embeddings for one or more pieces of text                         |
-| `create_moderation` | `OPENAI_MCP_MODERATION_MODELS`    | Check text for potentially harmful content                                   |
-| `list_models`       | None                              | List available models                                                        |
+| Tool                | Needs                             | Description                                                                     |
+| ------------------- | --------------------------------- | ------------------------------------------------------------------------------- |
+| `generate_text`     | `OPENAI_MCP_TEXT_MODELS`          | Send a prompt, optional instructions, images, and web search to an OpenAI model |
+| `count_tokens`      | `OPENAI_MCP_TEXT_MODELS`          | Count the input tokens a `generate_text` request would use                      |
+| `generate_image`    | `OPENAI_MCP_IMAGE_MODELS`         | Generate one or more images from a text prompt                                  |
+| `edit_image`        | `OPENAI_MCP_IMAGE_MODELS`         | Edit or combine existing images using a text prompt                             |
+| `generate_speech`   | `OPENAI_MCP_SPEECH_MODELS`        | Convert text to spoken audio                                                    |
+| `transcribe_audio`  | `OPENAI_MCP_TRANSCRIPTION_MODELS` | Transcribe audio from a URL or local file                                       |
+| `translate_audio`   | `OPENAI_MCP_TRANSLATION_MODELS`   | Translate audio from a URL or local file into English text                      |
+| `create_embeddings` | `OPENAI_MCP_EMBEDDING_MODELS`     | Get vector embeddings for one or more pieces of text                            |
+| `create_moderation` | `OPENAI_MCP_MODERATION_MODELS`    | Check text for potentially harmful content                                      |
+| `list_models`       | None                              | List available models                                                           |
 
 Image and speech tools save files to your OS temp directory, unless the client passes `outputPath`, and return the file path.
 

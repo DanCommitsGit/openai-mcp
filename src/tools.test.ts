@@ -201,6 +201,68 @@ describe("generateText", () => {
     });
   });
 
+  it("enables the web_search tool and lists each cited page once under Sources", async () => {
+    const citation = (url: string, title: string) => ({
+      type: "url_citation",
+      url,
+      title,
+      start_index: 0,
+      end_index: 1,
+    });
+    mocks.responsesCreate.mockResolvedValueOnce({
+      output_text: "It is sunny.",
+      output: [
+        { type: "web_search_call" },
+        {
+          type: "message",
+          content: [
+            {
+              type: "output_text",
+              annotations: [
+                citation("https://example.com/a", "Weather A"),
+                citation("https://example.com/a", "Weather A"),
+                citation("https://example.com/b", "Weather B"),
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await generateText({
+      prompt: "weather?",
+      model: "gpt-5.4-nano",
+      webSearch: true,
+    });
+
+    expect(mocks.responsesCreate).toHaveBeenCalledWith({
+      model: "gpt-5.4-nano",
+      input: "weather?",
+      tools: [{ type: "web_search" }],
+    });
+    expect(result.content).toEqual([
+      {
+        type: "text",
+        text: "It is sunny.\n\nSources:\n- Weather A: https://example.com/a\n- Weather B: https://example.com/b",
+      },
+    ]);
+  });
+
+  it("returns the plain text when a web search reply has no citations", async () => {
+    mocks.responsesCreate.mockResolvedValueOnce({
+      output_text: "No idea.",
+      output: [],
+    });
+
+    const result = await generateText({
+      prompt: "hi",
+      model: "m",
+      webSearch: true,
+    });
+
+    expect(result.content).toEqual([{ type: "text", text: "No idea." }]);
+  });
+
   it("passes an image URL through as input_image content", async () => {
     mocks.responsesCreate.mockResolvedValueOnce({ output_text: "A cat" });
 
@@ -550,6 +612,18 @@ describe("countTokens", () => {
       ],
     });
     expect(result.content).toEqual([{ type: "text", text: "42" }]);
+  });
+
+  it("includes the web_search tool when web search is enabled", async () => {
+    mocks.inputTokensCount.mockResolvedValueOnce({ input_tokens: 90 });
+
+    await countTokens({ prompt: "hello", model: "m", webSearch: true });
+
+    expect(mocks.inputTokensCount).toHaveBeenCalledWith({
+      model: "m",
+      input: "hello",
+      tools: [{ type: "web_search" }],
+    });
   });
 
   it("passes a plain prompt as a string without instructions", async () => {

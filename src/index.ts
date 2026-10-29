@@ -75,6 +75,12 @@ async function main() {
             .describe(
               "Images to include with the prompt, each as an http(s) URL or a file path on this server's filesystem (PNG, JPEG, WEBP, or GIF)",
             ),
+          webSearch: z
+            .boolean()
+            .optional()
+            .describe(
+              "Let the model search the web. Cited pages are listed under Sources in the reply",
+            ),
         }),
       },
       (args) => generateText(args),
@@ -103,6 +109,10 @@ async function main() {
             .describe(
               "Images to include in the count, each as an http(s) URL or a file path on this server's filesystem (PNG, JPEG, WEBP, or GIF)",
             ),
+          webSearch: z
+            .boolean()
+            .optional()
+            .describe("Count the request as one that has web search enabled"),
         }),
       },
       (args) => countTokens(args),

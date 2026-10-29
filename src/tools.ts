@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, parse } from "node:path";
 import OpenAI, { APIError, OpenAIError, toFile, type Uploadable } from "openai";
 import type { ImagesResponse } from "openai/resources/images";
+import type { Response } from "openai/resources/responses/responses";
 
 export function formatError(error: unknown): string {
   if (error instanceof APIError) {
@@ -171,11 +172,34 @@ async function buildResponseInput(
   ];
 }
 
+const WEB_SEARCH_TOOLS = [{ type: "web_search" as const }];
+
+function formatCitedSources(response: Response): string {
+  const sources = new Map<string, string>();
+  for (const item of response.output) {
+    if (item.type !== "message") continue;
+    for (const part of item.content) {
+      if (part.type !== "output_text") continue;
+      for (const annotation of part.annotations) {
+        if (annotation.type === "url_citation") {
+          sources.set(annotation.url, annotation.title);
+        }
+      }
+    }
+  }
+  if (sources.size === 0) {
+    return "";
+  }
+  const lines = [...sources].map(([url, title]) => `- ${title}: ${url}`);
+  return `\n\nSources:\n${lines.join("\n")}`;
+}
+
 export async function generateText(args: {
   prompt: string;
   model: string;
   instructions?: string | undefined;
   images?: string[] | undefined;
+  webSearch?: boolean | undefined;
 }): Promise<ToolResult> {
   try {
     const client = new OpenAI();
@@ -183,11 +207,16 @@ export async function generateText(args: {
       model: args.model,
       input: await buildResponseInput(args.prompt, args.images),
       ...(args.instructions ? { instructions: args.instructions } : {}),
+      ...(args.webSearch ? { tools: WEB_SEARCH_TOOLS } : {}),
     });
 
+    const text = response.output_text || "No response content.";
     return {
       content: [
-        { type: "text", text: response.output_text || "No response content." },
+        {
+          type: "text",
+          text: args.webSearch ? text + formatCitedSources(response) : text,
+        },
       ],
     };
   } catch (error) {
@@ -203,6 +232,7 @@ export async function countTokens(args: {
   model: string;
   instructions?: string | undefined;
   images?: string[] | undefined;
+  webSearch?: boolean | undefined;
 }): Promise<ToolResult> {
   try {
     const client = new OpenAI();
@@ -210,6 +240,7 @@ export async function countTokens(args: {
       model: args.model,
       input: await buildResponseInput(args.prompt, args.images),
       ...(args.instructions ? { instructions: args.instructions } : {}),
+      ...(args.webSearch ? { tools: WEB_SEARCH_TOOLS } : {}),
     });
 
     return {
